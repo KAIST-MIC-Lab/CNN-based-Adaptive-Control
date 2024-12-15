@@ -1,0 +1,9 @@
+demo 0.0
+    DNN works!
+
+demo 1.0
+	CNN 
+		no pooling
+		no concanate
+		not works at input layer
+			gradient problem

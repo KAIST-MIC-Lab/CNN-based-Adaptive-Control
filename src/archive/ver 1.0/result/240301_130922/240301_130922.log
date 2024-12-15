@@ -1,0 +1,53 @@
+===========================================
+              SIMULATION INFO              
+===========================================
+
+SIMULATION PARAMETERS 
+    Simulation Time(s): 5.000
+    Simulation Step Time(s): 0.000100
+    Seed Number: 182
+
+TRAIN PARAMETERS 
+    Sampling Time(s): 0.000100
+    Stracking Time(s): 0.100
+
+    Learning Rate: 1000.000
+    CNN act_func: tanh
+    FCN act_func: tanh
+
+    robust term: 1.00
+
+    From Dixon
+        (No e-modification and Hurwitz Matrix)
+STRUCTURE REPORT 
+    FCN structure
+        input 0: (6, 1)
+                V 0: (7, 8)
+        input 1: (8, 1)
+                V 1: (9, 8)
+        input 2: (8, 1)
+                V 2: (9, 8)
+        input 3: (8, 1)
+                V 3: (9, 4)
+        input 4: (4, 1)
+                V 4: (5, 2)
+        output 5: (2, 1)
+
+TRAIN INFO 
+    trainable variables numbers
+            FCN: 250
+        total: 250
+
+===========================================
+             SIMULATION START              
+===========================================
+
+[INFO] Simulation Step 1.00/5.00s (20.000%)[INFO] Simulation Step 2.00/5.00s (40.000%)[INFO] Simulation Step 3.00/5.00s (60.000%)[INFO] Simulation Step 4.00/5.00s (80.000%)[INFO] Simulation Step 5.00/5.00s (100.000%)[INFO] Plotting Results
+
+===========================================
+             SIMULATION RESULT             
+===========================================
+
+RMS Error (x1): 43.765
+RMS Error (x2): 187.907
+

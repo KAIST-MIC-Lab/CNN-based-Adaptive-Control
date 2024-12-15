@@ -1,0 +1,44 @@
+===========================================
+            NEURAL NETWORK INFO            
+===========================================
+
+TRAIN PARAMETERS 
+    Sampling Time(s): 0.000100
+    Stracking Time(s): 0.100
+
+    Learning Rate: 1000.000
+    CNN act_func: tanh
+    FCN act_func: tanh
+
+    robust term: 1.00
+
+    From E.K.
+        Damping Factor: 10.000000
+        Hurwitz Mat: 
+   -10     0
+     0   -10
+
+STRUCTURE REPORT 
+    FCN structure
+        input 0: (6, 1)
+                V 0: (7, 8)
+        input 1: (8, 1)
+                V 1: (9, 8)
+        input 2: (8, 1)
+                V 2: (9, 8)
+        input 3: (8, 1)
+                V 3: (9, 4)
+        input 4: (4, 1)
+                V 4: (5, 2)
+        output 5: (2, 1)
+
+TRAIN INFO 
+    trainable variables numbers
+            FCN: 250
+        total: 250
+
+===========================================
+             SIMULATION START              
+===========================================
+
+[INFO] Simulation Step 1.00/2.00s (50.000%)[INFO] Simulation Step 2.00/2.00s (100.000%)[INFO] Plotting Results

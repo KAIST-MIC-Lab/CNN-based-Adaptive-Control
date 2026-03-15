@@ -1,184 +1,106 @@
-function [u, NN, dataset_x] = NNforward(NN, x, xd, u, dataset_x)
+function [NN_Out, NN, dataset_y] = NNforward(NN, y, yd, u, dataset_y, t)
     %% PREPARE
     paramCtrl = NN.paramCtrl;
-    
     CVLon = NN.paramCtrl.CVLon;
-    LSTMon = NN.paramCtrl.LSTMon;
 
-    error = x - xd;
-    % ===============================================================
-    error = error(2) + 1 * error(1);
-    % ===============================================================
-    dt = NN.paramCtrl.dt;
-
-    % nn_input = [error;x;u];
-    nn_input = [error;x;u]/1000;
-    % nn_input = [
-    %     diag([1/1,1/2])*error;
-    %     diag([1/1,1/3])*x;
-    %     diag([1/20,1/50])*u
-    %     ];
-    % nn_input = randn(size(nn_input)) * 0.1;
-    % nn_input = zeros(size(nn_input));
-    % nn_input = ones(size(nn_input)) * sin(u);
-
-    if NN.paramCtrl.CVLon 
-        if NN.paramCtrl.CVL2Don % 2D CVL
-            stacked_x = (double(dataset_x)/255.0 - 0.5) * 2;
-        else % 1D CVL
-            dataset_x(1:end-1, :) = dataset_x(2:end, :);
-            dataset_x(end, :) = nn_input';
-    
-            % stacked_x = flip(dataset_x);
-            stacked_x = dataset_x( ...
-            int64(1:1:NN.paramCtrl.size_CVL_input(1))*(NN.paramCtrl.input_dt/NN.paramCtrl.dt), :);
-        end
+    %% NN INPUT CONSTRUCTION
+    error = y-yd;
+    nn_input = [error;u]/1000;                                  % NN INPUT CONSTRUCTION
+    if isscalar(t)
+        current_time = t;
+        t_idx = round(current_time / NN.paramCtrl.dt) + 1;        % CALCULATE INDEX (must be >= 2)
+    else 
+        error('NNforward expects the current scalar time (t(t_idx)) as the last argument.')
     end
 
-    lgn = 2;
-    mx = 100;
+    if NN.paramCtrl.CVLon                                        
+        dataset_y(1:end-1, :) = dataset_y(2:end, :);              % UPDATE BUFFER AT SIMULATION STEP
+        dataset_y(end, :) = nn_input';
+        
+        % SLOW STACKING LOGIC
+        NN_dt = NN.paramCtrl.dt;                                  % SIMULATION TIME STEP
+        IN_dt = NN.paramCtrl.input_dt;                            % INPUT UPDATE TIME STEP
+        IN_H = NN.paramCtrl.size_CVL_input(1);                    % CVL HISTORY HEIGHT (ROWS)
+        
+        UP_steps = round(IN_dt / NN_dt);                          % UPDATE PERIOD IN STEPS
+        if rem(t_idx - 1, UP_steps) == 0 || t_idx == 2            % CHECK UPDATE CONDITION
+                                                                 
+            indices = int64(1:1:IN_H) * UP_steps;
+            % Sample CVL INPUT and store it for persistence
+            NN.paramCtrl.stk_x = dataset_y(indices, :);           % STACKED INPUT PERSISTENCE 
+            
+            % Check if the indices exceed the buffer size
+            if max(indices) > size(dataset_y, 1)
+                 error("CVL input history is larger than dataset_y buffer size. Increase buffer size in main script.")
+            end
+        end
+        
+        % Use the last stored stacked input 
+        stacked_x = NN.paramCtrl.stk_x;                           % USE PERSISTENT STACKED INPUT 
+    end
+    disp("reached")
+    lgn = 2;                                                      % LOGISTIC FUNCTION GAIN
+    mx = 100;                                                     % SCALING FACTOR
 
     FCL_num = paramCtrl.FCL_num;
-
-
     %% CVL CALC
     if CVLon
-        CVL_num = paramCtrl.CVL_num;
-
-        % phi_CVL  = stacked_x;
-        % phi_CVL  = tanh(stacked_x);
-
-        phi_CVL  = 2./(1+exp(-lgn * stacked_x)) - 1;
-        phi_CVL = mx*phi_CVL;
-        % phi_CVL = double(stacked_x);
-
-        NN.gradTape.("O_phi0") = phi_CVL;
+        phi_CVL  = 2./(1+exp(-lgn * stacked_x)) - 1;              % LOGISTIC NORMALIZATION FOR CVL INPUTS   
+        phi_CVL = mx*phi_CVL;                                     % SCALE INPUTS
+        NN.gradTape.("CVL_phi0") = phi_CVL;                       % STORE INPUT LAYER ACTIVATION FOR GRADIENT TAPE         
     
         [phi, phi_dot] = phiSelect(paramCtrl.CVL_phi);
-        for nn_idx = 1:1:paramCtrl.CVL_num+1
-            Om = NN.("Omega"+string(nn_idx-1));
-            B = NN.("Omega_B"+string(nn_idx-1));
-    
-            % CVL feedforwad
+        for nn_idx = 0:1:paramCtrl.CVL_num
+            % Weights and biases
+            Om = NN.("Omega"+string(nn_idx));
+            B = NN.("Omega_B"+string(nn_idx));
+
+            % Forward pass
             CVL_out = CVL1D(phi_CVL, Om, B);
             phi_CVL = phi(CVL_out);
-    
-            % gradient tape
-            NN.gradTape.("O_phi"+string(nn_idx)) = phi_CVL;
-            if nn_idx ~= FCL_num+1
-                NN.gradTape.("O_phi_dot"+string(nn_idx)) = phi_dot(CVL_out);
+
+            %Store activations and derivatives 
+            NN.gradTape.("CVL_phi"+string(nn_idx+1)) = phi_CVL;   % STORE ACTIVATIONS FOR GRADIENT TAPE
+            if nn_idx ~= paramCtrl.CVL_num                        % NO NEED TO STORE DERIVATIVES AT OUTPUT LAYER
+                NN.gradTape.("CVL_phi_dot"+string(nn_idx+1)) ...  % STORE DERIVATIVES FOR GRADIENT TAPE
+                = phi_dot(CVL_out);
             end
         end
     end
 
-    %% LSTM CALC
-    if LSTMon
-        if CVLon % CVL LSTM
-            LSTM_x = reshape(CVL_out, [], 1); % concanate
-        else % FCL LSTM
-            nn_input  = 2./(1+exp(-lgn * nn_input)) - 1;
-            LSTM_x = mx*nn_input;
-        end
-        z = [LSTM_x; NN.h; 1]; % 1 augmented for bias
-
-        % gate calc
-        f = tanh(NN.Wf' * z);
-        i = tanh(NN.Wi' * z);
-        c_star = sigmoid(NN.Wc' * z);
-        o = tanh(NN.Wo' * z);
-        
-        % cell, hidden states gradients
-        Psi_c = f .* NN.c + i .* c_star;
-        Psi_h = o .* sigmoid(Psi_c);
-        
-        % gradient Tape
-        NN.gradTape.z = z;
-        NN.gradTape.c = NN.c;
-
-        NN.gradTape.Psi_c_phi = sigmoid(Psi_c);
-        NN.gradTape.Psi_c_phi_dot = sigmoid_dot(Psi_c);
-
-        NN.gradTape.Psi_h = Psi_h;
-
-        NN.gradTape.Wo_phi = o;
-        NN.gradTape.Wo_phi_dot = ...
-            eye(length(o)) - diag(o.^2);
-
-        NN.gradTape.Wc_phi = c_star;
-        NN.gradTape.Wc_phi_dot = sigmoid_dot(c_star);
-
-        NN.gradTape.Wi_phi = i;
-        NN.gradTape.Wi_phi_dot = ...
-            eye(length(i)) - diag(i.^2);
-
-        NN.gradTape.Wf_phi = f;
-        NN.gradTape.Wf_phi_dot = ...
-            eye(length(f)) - diag(f.^2);
-
-        % cell, hiddenn states updates
-        NN.c = NN.c + ...
-            (-NN.paramCtrl.bc*NN.c + NN.paramCtrl.bc*Psi_c) * dt;
-        NN.h = NN.h + ...
-            (-NN.paramCtrl.bh*NN.h + NN.paramCtrl.bh*Psi_h) * dt;
-
-        % output calc
-        LSTM_out = Psi_h;
-    end
-
     %% FCL CALC
-    if LSTMon % (LSTM, LSTM+CVL)
-        phi_FCL = [LSTM_out; 1];
-    else
-        if CVLon % (CVL)
-            phi_FCL = [reshape(CVL_out, [], 1); 1];
-        else % (FCL)
+    if CVLon 
+        phi_FCL = [reshape(CVL_out, [], 1); 1];
+    else % (FCL)
         nn_input  = 2./(1+exp(-lgn * nn_input)) - 1;
         nn_input = mx*nn_input;
-        
         phi_FCL = [nn_input; 1];
-        end
     end
-
-    NN.gradTape.("V_phi0") = phi_FCL;
 
     [phi, phi_dot] = phiSelect(paramCtrl.FCL_phi);
-    for nn_idx = 1:1:FCL_num+1
-        V = NN.("V"+string(nn_idx-1));
-
-        % FCL feedfowwad
+    NN.gradTape.("FCL_phi0") = phi_FCL;
+    for nn_idx = 0:1:FCL_num
+        V = NN.("V"+string(nn_idx));
         FCL_out = V'*phi_FCL;
-        phi_FCL = phi(FCL_out);
-        if nn_idx == FCL_num+1 
-            % last layer does not need 1 augmentation and activation function
-            phi_FCL = FCL_out;
+        phi_FCL = phi(FCL_out);                                   % JUNK AT OUTPUT LAYER
+        phi_dot_FCL = phi_dot(FCL_out);
+        if nn_idx == FCL_num 
+            NN_Out = FCL_out;                                     % FINAL OUTPUT
+            phi_FCL = FCL_out;                                    % STORE FINAL OUTPUT WITHOUT ACTIVATION
+        else
+            NN.gradTape.("FCL_phi"+string(nn_idx+1)) = phi_FCL;
+            NN.gradTape.("FCL_phi_dot"+string(nn_idx+1)) = phi_dot_FCL;
         end
-
-        % gradient tape
-        if nn_idx ~= FCL_num+1
-            NN.gradTape.("V_phi"+string(nn_idx)) = phi_FCL;
-            NN.gradTape.("V_phi_dot"+string(nn_idx)) = phi_dot(FCL_out);  
-        end
-    end
-
-    %% FINAL OUTPUT
-    u = FCL_out;
-    if length(u) ~= paramCtrl.size_FCL_output
+    end 
+    NN.paramCtrl.NN_Out = NN_Out;                                 % USED IN NNTRAIN
+    if length(NN_Out) ~= paramCtrl.size_FCL_output
         error("[ERR] NN output size is not same")
     end
-
 end
 
-%% LOCAL FUNCTIONS
-function out = sigmoid(in)
-    out = 1 / (1 + exp(-in));
-    out = out';
-end
-function out = sigmoid_dot(in)
-    out = diag(in.*(1-in));
-end
 
-% activation functino selector
-function [phi, phi_dot] = phiSelect(phi)
+%% ACTIVATION FUNCTIONS
+function [phi, phi_dot] = phiSelect(phi)                          % SELECT ACTIVATION FUNCTION
     if phi == "tanh"
         phi = @(x) tanh_(x);
         phi_dot = @(x) tanh_dot(x);
@@ -188,7 +110,6 @@ function [phi, phi_dot] = phiSelect(phi)
     end
 end
 
-% tanh function
 function x = tanh_(x)
     if isvector(x)
         x = [tanh(x); 1];
@@ -197,7 +118,6 @@ function x = tanh_(x)
     end
 end
 
-% derivative of tanh function
 function x = tanh_dot(x)
     if isvector(x)
         x = [
@@ -209,7 +129,6 @@ function x = tanh_dot(x)
     end
 end
 
-% relu function
 function x = relu_(x)
     if isvector(x)
         x = [max(0,x); 1];
@@ -220,25 +139,14 @@ function x = relu_(x)
     end
 end
 
-% derivative of relu function
 function x = relu_dot(x)
     if isvector(x)
-        % x = [
-        %     diag( ...
-        %     sign(max(0,x)) + sign(min(0,x))*-0.1...
-        %     )
-        %     zeros(1,length(x))
-        % ];
-
         x = [
             diag(sign(max(0, x)))
             zeros(1, length(x))
             ];
     else
         x = sign(max(0,x));
-        % x = sign(max(0,x)) + sign(min(0,x))*-0.1;
     end
 end
-
-
 

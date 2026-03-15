@@ -1,160 +1,89 @@
 function NN = paramCtrl_load(paramSim)
-    %% Check! Check! Critical Setting
-    % NN.paramCtrl.CVL2Don = 0;
-    NN.paramCtrl.CVL2Don = 1;
+    %% NEURAL NETWORK PARAMETERS CONTROL LOAD
+    NN.paramCtrl.CVLon = 1;                                         % CVL ON/OFF
+    NN.paramCtrl.Gamma = 100;                                       % LEARNING RATE
+    NN.paramCtrl.Beta = 1e-06;                                      % LAGRANGE MULTIPLIER LEARNING RATE (BETA_i, single value for simplicity)
+    %NN.paramCtrl.initRangeCVL = 0.1;                               % CVL WEIGHTS INITIALIZATION RANGE(UNIFORM)
+    %NN.paramCtrl.initRangeFCL = 0.1;                               % FCL WEIGHTS INITIALIZATION RANGE(UNIFORM)
 
-    % NN.paramCtrl.CVLon = 0;
-    NN.paramCtrl.CVLon = 1;
-
-    NN.paramCtrl.LSTMon = 0;
-    % NN.paramCtrl.LSTMon= 1;
-
-    NN.paramCtrl.RobustOn = 0;
-    % NN.paramCtrl.RobustOn = 1;
-
-    NN.paramCtrl.Dixon = 0; % E.K.
-    % NN.paramCtrl.Dixon = 1; % Dixon
-
-    NN.paramCtrl.Gamma = 1e+3; % learning rate
-    % NN.paramCtrl.Gamma = 1e-1; % learning rate
-
-    %% DIXON; no Ac, rho
-    if NN.paramCtrl.Dixon
-        NN.paramCtrl.rho = 0; % e-modification
-        % NN.paramCtrl.Ac = -eye(2);
-        NN.paramCtrl.Ac = -eye(1);
-    else
-        % NN.paramCtrl.rho = NN.paramCtrl.Gamma*1e-1; % e-modification
-        % NN.paramCtrl.rho = 10e-2; % e-modification
-        % NN.paramCtrl.rho = 10e-1; % e-modification
-        NN.paramCtrl.rho = 10e+0; % e-modification
-        % NN.paramCtrl.rho = 10e-1; % e-modification
-        % NN.paramCtrl.rho = 0; % e-modification
-        % NN.paramCtrl.rho = 50e+0; % e-modification
-        % NN.paramCtrl.Ac = diag([-10,-10]);
-        NN.paramCtrl.Ac = diag(-10);
-        % NN.paramCtrl.Ac = diag(-50);
-        % NN.paramCtrl.Ac = diag([-25,-25]);
-        % NN.paramCtrl.Ac = diag([-50,-50]);
-    end
-
-    %% Controller's PARAMETERS
-    % sampling time for controller
-    NN.paramCtrl.dt = paramSim.dt;
-    NN.paramCtrl.input_dt = 1e-1;
-    % NN.paramCtrl.input_dt = 1e-4;
-    % NN.paramCtrl.input_dt = 1e-2;
-
-    % for global stability
-    if NN.paramCtrl.RobustOn
-        % NN.paramCtrl.ks = 0.2;
-        NN.paramCtrl.ks = 2;
-    else
-        NN.paramCtrl.ks = 0;
-    end
-
-    NN.paramCtrl.inv_Ac = inv(NN.paramCtrl.Ac);
+    %% CONTROLLER'S PARAMETERS
+    NN.paramCtrl.dt = paramSim.dt;                                  % SIMULATION TIME STEP 
+    NN.paramCtrl.input_dt = 1e-1;                                   % CONTROLLER INPUT TIME STEP    
 
     %% NN SIZE
-    % NN.paramCtrl.size_CVL_input = [10, 4]; 
-    NN.paramCtrl.size_CVL_input = [32, 32]; 
-    NN.paramCtrl.size_FCL_input = 4; % if CVL on, auto-determined
-    % NN.paramCtrl.size_FCL_input = NN.paramCtrl.size_CVL_input(end); % if CVL on, auto-determined
-    NN.paramCtrl.size_FCL_output = 1; 
+    NN.paramCtrl.size_CVL_input = [10, 4]; 
+    NN.paramCtrl.size_FCL_input = 4;                                % IF CVL IS ON, THIS WILL BE OVERRIDED
+    NN.paramCtrl.size_FCL_output = 2; 
             
-    %% PARAMETERS AND OTHER SETTING
-    NN.paramCtrl.FCL_phi = "tanh";
-    % NN.paramCtrl.FCL_phi = "relu";
-
-    NN.paramCtrl.CVL_phi = "tanh";
-    % NN.paramCtrl.CVL_phi = "relu";
-
-    NN.paramCtrl.FCL_radius = 5e5;
-    NN.paramCtrl.LSTM_radius = 5e2;
-    NN.paramCtrl.CVL_radius = 5e2;
+    %% NEURAL NETWORK PARAMETERS AND OTHER SETTING
+    NN.paramCtrl.FCL_phi = "tanh";                                  % FCL ACTIVATION FUNCTION
+    NN.paramCtrl.CVL_phi = "tanh";                                  % CVL ACTIVATION FUNCTION
 
     %% CVL STRUCUTRE
     if NN.paramCtrl.CVLon
         NN.paramCtrl.CVL_filter_size = ...
-            [
-            % q(filter height),     r(filter number)
-            4       4
-            % 16       8
-
+            [ % q(filter height),     r(filter number)
+            5       2
+            3       2
             ];
         
-        NN.paramCtrl.CVL_Node = zeros(size(NN.paramCtrl.CVL_filter_size, 1)+1, 4);
-        % m(input height,    n(input width),    q(filter height),    r(filter number)
-        % - input layer
-        % - hidden layers
-        % - output layer (q, r are is trash values; 0)
-        NN.paramCtrl.CVL_Node(1:end-1, 3:4) = NN.paramCtrl.CVL_filter_size;
-        NN.paramCtrl.CVL_Node(1,1:2) = NN.paramCtrl.size_CVL_input;
-        NN.paramCtrl.CVL_Node(2:end,2) = NN.paramCtrl.CVL_filter_size(1:end, 2);
+        % CVL_Node MATRIX TO STORE DIMENSION OF EACH LAYER.
+        % INCLUDING SIZE OF FILTERS AND NUMBER OF FILTERS
+        NN.paramCtrl.CVL_Node = ...                                 % n(HEIGHT), m(WIDTH),q(FILTER HEIGHT),r(FILTER NUMBER)
+        zeros(size(NN.paramCtrl.CVL_filter_size, 1)+1, 4);
+
+        NN.paramCtrl.CVL_Node(1:end-1, 3:4) = ...                   % FILTERS SIZE
+        NN.paramCtrl.CVL_filter_size;
+
+        NN.paramCtrl.CVL_Node(1,1:2) = ...                          % CVL INPUT SIZE
+        NN.paramCtrl.size_CVL_input;
+
+        NN.paramCtrl.CVL_Node(2:end,2) = ...                        % CALCULATE WIDTHS OF EACH LAYER AFTER CONVOLUTION
+        NN.paramCtrl.CVL_filter_size(1:end, 2);
+
         for CVL_idx = 2:1:size(NN.paramCtrl.CVL_filter_size, 1)+1
-            NN.paramCtrl.CVL_Node(CVL_idx, 1) = ...
+            NN.paramCtrl.CVL_Node(CVL_idx, 1) = ...                 % CALCULATE HEIGHTS OF EACH LAYER AFTER CONVOLUTION
                 NN.paramCtrl.CVL_Node(CVL_idx-1, 1) - NN.paramCtrl.CVL_Node(CVL_idx-1, 3) + 1;
         end
     end
 
-    %% LSTM STRUCTURE
-    if NN.paramCtrl.LSTMon
-        NN.paramCtrl.bc = 5e+1; % cell state converge gain
-        NN.paramCtrl.bh = 5e+1; % cell state converge gain
-      
-        % cell, hidden state number (h2)
-        NN.paramCtrl.LSTM_N_size = 4; 
-        % concatenate state number (h1)
-        if NN.paramCtrl.CVLon
-            NN.paramCtrl.LSTM_CS_size = ...
-                NN.paramCtrl.CVL_Node(end,1)*NN.paramCtrl.CVL_Node(end,2) ...
-                + NN.paramCtrl.LSTM_N_size + 1;
-        else
-            NN.paramCtrl.LSTM_CS_size = ...
-                NN.paramCtrl.size_FCL_input + NN.paramCtrl.LSTM_N_size + 1;
-        end
-        % LSTM input (h0)
-        NN.paramCtrl.LSTM_in_size = ...
-            NN.paramCtrl.LSTM_CS_size - NN.paramCtrl.LSTM_N_size - 1;
-    end
-    
     %% FCL STRUCUTRE
-    NN.paramCtrl.FCL_Node = ...
-        [
-        NN.paramCtrl.size_FCL_input; % (FCL)
-        8
-        NN.paramCtrl.size_FCL_output
-        ];  
-
-    if NN.paramCtrl.LSTMon % (LSTM, CVL+LSTM)
-        NN.paramCtrl.FCL_Node(1) = NN.paramCtrl.LSTM_N_size;
-    elseif NN.paramCtrl.CVLon % (CVL)
-        NN.paramCtrl.FCL_Node(1) = ...
+    % MODIFY FCL INPUT SIZE IF CVL IS ON
+    if NN.paramCtrl.CVLon
+        NN.paramCtrl.size_FCL_input = ...
             NN.paramCtrl.CVL_Node(end,1)*NN.paramCtrl.CVL_Node(end,2);  
     end
 
+    % FCL_Node MATRIX TO STORE DIMENSION OF EACH LAYER.
+    NN.paramCtrl.FCL_Node = ...
+        [
+        NN.paramCtrl.size_FCL_input; 
+        4
+        NN.paramCtrl.size_FCL_output
+        ];
+        
+    %% NORM CONTRAINT SETTINGS
+    NN.paramCtrl.Om_norms=[                                          % WEIGHTS NORM CONSTRAINTS FOR CVL LAYERS
+      100;
+      100;       
+    ];
+    NN.paramCtrl.V_norms=[                                           % WEIGHTS NORM CONSTRAINTS FOR FCL LAYERS
+      100;
+      100;        
+    ];
+    NN.paramCtrl.NN_Out_norm = 10;                                   % NN OUTPUT NORM CONSTRAINT
+
+    %% LAGRANGE MULTIPLIERS
+    % Weight Constraint Multipliers (lambda_i)
+    NN.paramCtrl.Lambda_Om = zeros(size(NN.paramCtrl.Om_norms));      % LAMBDA for CVL weights, initialized to zero
+    NN.paramCtrl.Lambda_V = zeros(size(NN.paramCtrl.V_norms));        % LAMBDA for FCL weights, initialized to zero
+    NN.paramCtrl.Lambda_Out = 0;                                     % LAMBDA for Output norm, initialized to zero
+    
     %% PASSIVE PARAMETERS
-    % ..._num means k_f, k_c index numbers
-    % subtract 2 to exclude input/output layer
-    % LSTM has single index
-    NN.paramCtrl.FCL_num = length(NN.paramCtrl.FCL_Node)-2;
-
+    NN.paramCtrl.FCL_num = length(NN.paramCtrl.FCL_Node)-2;          % INDEX OF FCL WEIGHTS: 0 TO FCL_num
     if NN.paramCtrl.CVLon
-        NN.paramCtrl.CVL_num = size(NN.paramCtrl.CVL_Node, 1)-2; 
+        NN.paramCtrl.CVL_num = size(NN.paramCtrl.CVL_Node, 1)-2;     % INDEX OF CVL WEIGHTS: 0 TO CVL_num
     end
-
-
     NN.paramCtrl.FCL_weight_num = 0;
     NN.paramCtrl.CVL_weight_num = 0;
-    NN.paramCtrl.LSTM_weight_num = 0;
-
-    %% DEBUG
-    % checkNNsize(NN.paramCtrl);
-
-
 end
-
-%% LOCAL FUNCTIONS
-% function [] = checkNNsize(paramCtrl)
-    % error("Check the size of CVL's output and input of FCL (must have same value)")
-% end

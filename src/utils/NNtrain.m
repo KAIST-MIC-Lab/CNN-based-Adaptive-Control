@@ -1,273 +1,253 @@
+%% CLEANED VERSION (COMMENTED IN YOUR STYLE)
 function NN = NNtrain(NN, error)
-    %% PREPARE
+
+    %% ===============================================================
+    %  PREPARE
     % ===============================================================
-    error = error(2) + 1 * error(1);
-    % ===============================================================
+    paramCtrl  = NN.paramCtrl;                                           % PARAMETER CONTROL STRUCTURE
+    gradTape   = NN.gradTape;                                            % GRADIENT TAPE FROM FORWARD PASS
 
-    paramCtrl = NN.paramCtrl;
-    gradTape = NN.gradTape;
-    
-    CVLon = paramCtrl.CVLon;
-    LSTMon = paramCtrl.LSTMon;
+    dt         = paramCtrl.dt;                                           % SIMULATION TIME STEP
+    Gamma      = paramCtrl.Gamma;                                        % LEARNING RATE
+    Beta       = paramCtrl.Beta;                                         % MULTIPLIER LEARNING RATE
 
-    dt = paramCtrl.dt;
+    out_num    = paramCtrl.size_FCL_output;                              % NUMBER OF NN OUTPUTS
+    Phi        = paramCtrl.NN_Out;                                       % CURRENT NN OUTPUT
 
-    out_num = paramCtrl.size_FCL_output;
+    Lamda_V    = paramCtrl.Lambda_V;                                     % LAGRANGE MULTIPLIER FOR FCL
+    Lamda_Om   = paramCtrl.Lambda_Om;                                    % LAGRANGE MULTIPLIER FOR CVL
+    Lambda_Out  = paramCtrl.Lambda_Out;                                  % LAGRANGE FOR OUTPUT NORM
 
-    % CVL_num = paramCtrl.CVL_num;
+    V_norms       = paramCtrl.V_norms;                                   % FCL NORM BOUNDS
+    Om_norms      = paramCtrl.Om_norms;                                  % CVL NORM BOUNDS
+    NN_Out_norm   = paramCtrl.NN_Out_norm;                               % OUTPUT NORM BOUND
 
-    FCL_num = paramCtrl.FCL_num;
-    FCL_Node = paramCtrl.FCL_Node;
-    % FCL_weight_num = paramCtrl.FCL_weight_num;
-    FCL_radius = paramCtrl.FCL_radius;
-    
+    FCL_num    = paramCtrl.FCL_num;                                      % NUMBER OF FCL LAYERS
+    CVLon      = paramCtrl.CVLon;                                        % CVL ON/OFF FLAG
+
     if CVLon
-        CVL_num = paramCtrl.CVL_num;
-        CVL_Node = paramCtrl.CVL_Node;
-        % CVL_weight_num = paramCtrl.CVL_weight_num;
-        CVL_radius = paramCtrl.CVL_radius;
+        CVL_num  = paramCtrl.CVL_num;                                    % NUMBER OF CVL LAYERS
+        CVL_Node = paramCtrl.CVL_Node;                                   % CVL NODE DIMENSIONS
     end
 
-    if LSTMon
 
-    end
+    %% ===============================================================
+    %  FCL TRAINING  (FULLY CONNECTED LAYERS)
+    % ================================================================
+    dPhidphi = 1;                                                        % INITIAL BACKPROP SIGNAL
 
-    Gamma = paramCtrl.Gamma;        % learning rate
+    for nn_idx = flip(0:FCL_num)
+        V   = NN.("V"+string(nn_idx));                                   % CURRENT FCL WEIGHT MATRIX
+        phi = gradTape.("FCL_phi"+string(nn_idx));                       % CURRENT LAYER INPUT
+        [n,m] = size(V);                                                 % WEIGHT SHAPE
 
-    % =========================
-    % from E.K.
-    % employed Ac design matrix, e-modification
-    inv_Ac = paramCtrl.inv_Ac;
-    rho = paramCtrl.rho;
-    % =========================
-
-
-    %% BACK-PROPAGATION
-    % FCL train ====================================================
-    dPhidphi = 1;
-    for nn_idx = flip(1:1:FCL_num+1)
-        % for certain FCL layer
-        phi = gradTape.("V_phi"+string(nn_idx-1));
-        grad_ori = kron(eye(FCL_Node(nn_idx+1)), phi');
-        if nn_idx ~= FCL_num+1
-            V = NN.("V"+string(nn_idx));
-            phi_dot = gradTape.("V_phi_dot"+string(nn_idx));
-
-            % grad_ori = (V'*phi_dot) * grad_ori;
-            dPhidphi = dPhidphi * (V'*phi_dot);
-
+        % ---------------------------------------------------------------
+        % BACKPROPAGATION ACCUMULATION
+        % ---------------------------------------------------------------
+        if nn_idx ~= FCL_num
+            V_next  = NN.("V"+string(nn_idx+1));                         % NEXT LAYER WEIGHT
+            phi_dot = gradTape.("FCL_phi_dot"+string(nn_idx+1));         % ACTIVATION DERIVATIVE
+            dPhidphi = dPhidphi * (V_next' * phi_dot);                   % UPDATE CHAIN RULE
         end
-        grad_ori = dPhidphi * grad_ori;
 
-        V = NN.("V"+string(nn_idx-1));
-        [n,m] = size(V);
+        % ---------------------------------------------------------------
+        % JACOBIAN W.R.T VECTORISED WEIGHT MATRIX
+        % ---------------------------------------------------------------
+        dPhi_dvecV = dPhidphi * kron(eye(m), phi');                      % MATRIX-TO-VECTOR JACOBIAN
 
-        vecV = reshape(V, [], 1);
+        vecV = V(:);                                                     % VECTORISED WEIGHTS
 
-        % FCL update
-        % grad = Gamma * grad_ori' * error;
-        grad1 = -Gamma * grad_ori' * inv_Ac  * error;
-        % grad1 = -Gamma * grad_ori' * [0 1] * inv_Ac  * error;
-        grad2 = -rho * norm(error) * vecV;
+        % ---------------------------------------------------------------
+        % PRIMAL UPDATE (WEIGHT UPDATE)
+        % ---------------------------------------------------------------
+        grad_vecV = Gamma * ( ...
+            dPhi_dvecV' * error ...                                      % MAIN GRADIENT TERM
+        - Lamda_V(nn_idx+1) * vecV ...                                   % WEIGHT NORM CONSTRAINT TERM
+        - Lambda_Out * (dPhi_dvecV' * Phi) ...                           % OUTPUT NORM CONSTRAINT TERM
+        );
 
-        grad = grad1 + grad2;      
-        grad = projGrad(grad, FCL_radius, vecV, Gamma, dt);
-        % if sum(isinf(grad))
-        %     warning("FCL gradients are inf")
-        %     grad = zeros(size(grad));
-        % end
-        vecV = vecV + grad * dt;
+        vecV = vecV + grad_vecV * dt;                                    % APPLY GRADIENT UPDATE
 
-        NN.("V"+string(nn_idx-1)) = reshape(vecV, n,m);
+        NN.("V"+string(nn_idx)) = reshape(vecV, n, m);                   % STORE UPDATED WEIGHTS
+
+        % ---------------------------------------------------------------
+        % DUAL UPDATE FOR FCL WEIGHT CONSTRAINT
+        % ---------------------------------------------------------------
+        Lamda_V(nn_idx+1) = max(0, Lamda_V(nn_idx+1) + ...
+            Beta * constraint_slack(vecV, V_norms(nn_idx+1)));           % PROJECTED GRADIENT ASCENT
     end
 
-    % back-propagation to next
-    % if k_f = 2
-    % grad_bckprop = (V2' * phi'2 * V1' * phi'1 * V0')'
-    grad_bckprop = dPhidphi * NN.V0';
-    grad_bckprop = grad_bckprop(:,1:end-1)'; % delete last gradient (from bias)
 
-    % LSTM train ===================================================
-    if LSTMon
-        z = gradTape.z;
-        l1 = paramCtrl.LSTM_CS_size; % concatenate stata size
-        l2 = paramCtrl.LSTM_N_size; % cell, hidden state size
-        n = paramCtrl.LSTM_in_size; % LSTM input size
-        c = gradTape.c;
 
-        % input -> Psi_c
-        dPsicdWc = diag(gradTape.Wi_phi) ...
-            * gradTape.Wc_phi_dot * kron(eye(l2), z');
-        dPsicdWi = diag(gradTape.Wc_phi) ...
-            * gradTape.Wi_phi_dot * kron(eye(l2), z');
-        dPsicdWf = diag(c) * gradTape.Wf_phi_dot * kron(eye(l2), z');
-        
-        % Psi_c -> Psi_h
-        dPsihdWc = diag(gradTape.Wo_phi) ...
-            * gradTape.Wc_phi_dot * dPsicdWc;
-        dPsihdWi = diag(gradTape.Wo_phi) ...
-            * gradTape.Wc_phi_dot * dPsicdWi;
-        dPsihdWf = diag(gradTape.Wo_phi) ...
-            * gradTape.Wc_phi_dot * dPsicdWf;        
-        dPsihdWo = diag(gradTape.Psi_c_phi) ...
-            * gradTape.Wo_phi_dot * kron(eye(l2), z');
-        
-        % Phi_h -> Phi
-        dPhidWc = grad_bckprop' * dPsihdWc;
-        dPhidWi = grad_bckprop' * dPsihdWi;
-        dPhidWf = grad_bckprop' * dPsihdWf;
-        dPhidWo = grad_bckprop' * dPsihdWo;
-
-        % back-propagation to next
-        mapper = [eye(n); zeros(l2+1, n)];
-
-        dfdx = gradTape.Wf_phi_dot * NN.Wf' * mapper;
-        dc_stardx = gradTape.Wc_phi_dot * NN.Wc' * mapper;
-        didx = gradTape.Wi_phi_dot * NN.Wi' * mapper;
-
-        grad_bckprop = grad_bckprop' * diag(gradTape.Wo_phi) ...
-            * gradTape.Wc_phi_dot ...
-            * ( ...
-                + diag(gradTape.c) * dfdx ...
-                + diag(gradTape.Wi_phi) * dc_stardx ...
-                + diag(gradTape.Wc_phi) * didx ...
-            );
-        grad_bckprop = grad_bckprop';
-        
-        % final gradients calc
-        vecWc = reshape(NN.Wc, [], 1);
-        grad1 = - Gamma * dPhidWc' * inv_Ac * error;
-        grad2 = - rho * norm(error) * vecWc;
-        vecWc = vecWc + (grad1 + grad2) * dt;
-
-        vecWi = reshape(NN.Wi, [], 1);
-        grad1 = - Gamma * dPhidWi' * inv_Ac * error;
-        grad2 = - rho * norm(error) * vecWi;
-        vecWi = vecWi + (grad1 + grad2) * dt;
-
-        vecWf = reshape(NN.Wf, [], 1);
-        grad1 = - Gamma * dPhidWf' * inv_Ac * error;
-        grad2 = - rho * norm(error) * vecWf;
-        vecWf = vecWf + (grad1 + grad2) * dt;   
-
-        vecWo = reshape(NN.Wo, [], 1);
-        grad1 = - Gamma * dPhidWo' * inv_Ac * error;
-        grad2 = - rho * norm(error) * vecWo;
-        vecWo = vecWo + (grad1 + grad2) * dt;
-
-        % weights updates
-        NN.Wc = reshape(vecWc, l1, l2);
-        NN.Wi = reshape(vecWi, l1, l2);
-        NN.Wf = reshape(vecWf, l1, l2);
-        NN.Wo = reshape(vecWo, l1, l2);
-
-    end
-
-    % CVL train ====================================================
+    %% ===============================================================
+    %  CVL TRAINING  (CONVOLUTIONAL LAYERS)
+    % ================================================================
     if CVLon
-        for out_idx = 1:1:out_num
-            dPhidO = grad_bckprop(:, out_idx);
-            dPhidO = reshape(dPhidO, CVL_Node(end,1), CVL_Node(end,2));
-    
-            for nn_idx = flip(1:1:CVL_num+1)
-                % prepare
-                phi = gradTape.("O_phi"+string(nn_idx-1));
-                Om = NN.("Omega"+string(nn_idx-1));
-                B = NN.("Omega_B"+string(nn_idx-1));
-        
-                filter_num = CVL_Node(nn_idx, end);
-                filter_size = size(Om);
-                phi_size = size(phi);
-        
-                % main gradient calc
-                dPhidOm = zeros(size(Om));
-                dPhidphi = zeros(phi_size);
-                dPhidB = zeros(filter_num,1);
-                for filter_idx = 1:1:filter_num
-                    for row_idx = 1:1:filter_size(1)
-                        % dPhi/dO -> dPhi/dOmega
-                        dPhidOm(:,:,filter_idx) = ...
-                            dPhidOm(:,:,filter_idx) + ...
-                            dPhidO(row_idx,filter_idx) * phi(row_idx:row_idx+filter_size(1)-1, :);
-                        % dPhi/dO -> dPhi/dB
-                        dPhidB(filter_idx) = sum(dPhidO(:,filter_idx));
-        
-                        % dPhi/dO -> dPhi/dphi
-                        tmp = zeros(phi_size);
-                        tmp(row_idx:row_idx+filter_size(1)-1,:) = Om(:,:,filter_idx);
-                        dPhidphi = dPhidO(row_idx,filter_idx) * tmp;
+
+        % ---------------------------------------------------------------
+        % BACKPROP ENTERING CVL FROM FCL0
+        % ---------------------------------------------------------------
+        dPhi_dFCLInput = dPhidphi * NN.V0';                              % BACKPROP INTO FIRST FCL
+        dPhi_dFCLInput = dPhi_dFCLInput(:,1:end-1);                      % REMOVE BIAS COLUMN
+
+        CVLJac = struct();                                               % STRUCT TO STORE JACOBIANS
+
+        % ===============================================================
+        %  BACKPROP THROUGH CVL LAYERS
+        % ===============================================================
+        for idx = flip(0:CVL_num)
+
+            phi     = gradTape.("CVL_phi"+string(idx));                  % INPUT FEATURE MAP
+            if idx~= 0
+                phi_dot = gradTape.("CVL_phi_dot"+string(idx));          % ACTIVATION DERIVATIVE
+            else 
+                phi_dot = double(1);                                             % JUNK AT INPUT LAYER
+            end
+                                                                 
+            Om = NN.("Omega"+string(idx));                               % CVL FILTERS
+            B  = NN.("Omega_B"+string(idx));                             % CVL BIASES
+
+            filter_num = size(B,1);                                      % NUMBER OF FILTERS
+            p_jc       = size(Om,1);                                     % FILTER HEIGHT
+            n_jcPlus1  = CVL_Node(idx+2,1);                              % CURRENT LAYER HEIGHT
+            m_jcPlus1  = CVL_Node(idx+2,2);                              % CURRENT LAYER WIDTH
+            n_jc = CVL_Node(idx+1,1);                                    % PREVIOUS LAYER HEIGHT
+            m_jc = CVL_Node(idx+1,2);                                    % PREVIOUS LAYER WIDTH
+
+            % -----------------------------------------------------------
+            % INITIALIZE JACOBIAN FOR LAST CVL LAYER
+            % -----------------------------------------------------------
+            if idx == CVL_num
+                for out_idx = 1:out_num
+                    CVLJac.("dPhi_"+string(out_idx)+...                 % INITIAL dPhi/dPhi_jc
+                    "_dPhiC_"+string(idx)) = ...
+                        reshape(dPhi_dFCLInput(out_idx,:), n_jcPlus1, m_jcPlus1); 
+                end
+            end
+
+            % ===============================================================
+            %  PER-OUTPUT CONVOLUTION JACOBIANS
+            % ===============================================================
+            for out_idx = 1:out_num
+
+                dPhi_i_dPhi_jc = CVLJac.("dPhi_"+string(out_idx)+...    % CURRENT JACOBIAN
+                "_dPhiC_"+string(idx));  
+
+                % ----------------------------- dPhi/dOmega & dPhi/dB -----------------------------
+                dPhi_i_dOm = zeros(size(Om));                           % JACOBIAN W.R.T FILTER WEIGHTS
+                dPhi_i_dB  = zeros(size(B));                            % JACOBIAN W.R.T FILTER BIASES
+
+                for k = 1:filter_num
+                    Wk = Om(:,:,k);                                     % k-TH FILTER
+                    dOm_k = zeros(size(Wk));                            % LOCAL GRADIENT ACCUMULATOR
+                    dB_k  = 0;                                          % LOCAL BIAS GRADIENT
+
+                    for li = 1:n_jcPlus1
+                        dOm_k = dOm_k + dPhi_i_dPhi_jc(li,k) * ...
+                                phi(li:li+p_jc-1,:);                    % FILTER WEIGHT GRADIENT
+                        dB_k  = dB_k  + dPhi_i_dPhi_jc(li,k);           % BIAS GRADIENT
+                    end
+
+                    dPhi_i_dOm(:,:,k) = dOm_k;                          % STORE GRADIENT
+                    dPhi_i_dB(k)      = dB_k;                           % STORE BIAS GRADIENT
+                end
+
+                % ----------------------------- dPhi/dphi_prev -----------------------------
+                dPhi_i_dphi_jc = zeros(size(phi));                      % GRADIENT W.R.T PREVIOUS FEATURE MAP
+
+                for lj = 1:m_jcPlus1
+                    for k = 1:filter_num
+                        Wk = Om(:,:,k);                                 % k-TH FILTER
+                        for li = 1:n_jcPlus1
+                            coef = dPhi_i_dPhi_jc(li, lj);              % LOCAL PARTIAL DERIVATIVE
+                            tmp = zeros(n_jc, m_jc);                    % TEMP STORAGE
+                            tmp(li:li+p_jc-1,:) = Wk;                   % PLACE FILTER INTO CORRECT REGION
+                            dPhi_i_dphi_jc = dPhi_i_dphi_jc + ...
+                                coef * tmp;                             % ACCUMULATE CONTRIBUTION
+                        end
                     end
                 end
-        
-                if nn_idx ~= 1
-                    % dPhidphi -> dPhi/dO
-                    phi_dot = gradTape.("O_phi_dot"+string(nn_idx-1));
-                    dPhidO = dPhidphi .* phi_dot;
-                end
-        
-                % CVL updta
-                % Om_grad1 = Gamma * dPhidOm * error(1);
-                % B_grad1 = Gamma * dPhidB * error(1);
-                Om_grad1 = -Gamma * dPhidOm * inv_Ac(out_idx, out_idx) * error(1);
-                B_grad1 =  -Gamma * dPhidB * inv_Ac(out_idx, out_idx)  * error(1);
-                
-                Om_grad2 = - rho * norm(error) * Om;
-                B_grad2 = - rho * norm(error) * B;
 
-                Om_grad = Om_grad1 + Om_grad2;
-                B_grad = B_grad1 + B_grad2;
-
-                % projection
-                if sum(isinf(Om_grad))
-                    warning("CVL (filter) gradients are inf")
-                    Om_grad = zeros(size(Om_grad));
+                % STORE ALL JACOBIANS
+                CVLJac.("dPhi_"+string(out_idx)+"_dOm") = dPhi_i_dOm;   % STORE FILTER WEIGHT JACOBIAN
+                CVLJac.("dPhi_"+string(out_idx)+"_dB") = dPhi_i_dB;     % STORE BIAS JACOBIAN
+                CVLJac.("dPhi_"+string(out_idx)+...                     % STORE INPUT GRADIENT
+                "_dphiC_"+ string(idx))= dPhi_i_dphi_jc;
+                % BACKPROP FOR NEXT CVL LAYER
+                if idx ~= 0
+                    CVLJac.("dPhi_"+string(out_idx)+...                 % APPLY ACTIVATION DERIVATIVE
+                    "_dPhiC_"+ string(idx-1)) = dPhi_i_dphi_jc .* phi_dot;                               
                 end
-                if sum(isinf(B_grad))
-                    warning("CVL (bias) gradients are inf")
-                    B_grad = zeros(size(B_grad));
-                end
-
-                Om = Om + Om_grad * dt;
-                B = B + B_grad * dt;
-        
-                NN.("Omega"+string(nn_idx-1)) = Om;
-                NN.("Omega_B"+string(nn_idx-1)) = B;
             end
+
+
+            % ===============================================================
+            %  ACCUMULATE GRADIENTS OVER ALL OUTPUT NODES
+            % ===============================================================
+            dPhi_dOm_error = zeros(size(Om));                           % ERROR CONTRIBUTION (∂Φ/∂Ω * e)
+            dPhi_dB_error  = zeros(size(B));
+
+            dPhi_dOm_Phi   = zeros(size(Om));                           % OUTPUT CONSTRAINT CONTRIBUTION (∂Φ/∂Ω * Φ)
+            dPhi_dB_Phi    = zeros(size(B));
+
+            
+            for out_idx = 1:out_num                                     % ACCUM ERROR TERM
+                dPhi_dOm_error = dPhi_dOm_error + ...
+                    CVLJac.("dPhi_"+string(out_idx)+"_dOm") * error(out_idx); 
+                dPhi_dB_error  = dPhi_dB_error + ...
+                    CVLJac.("dPhi_"+string(out_idx)+"_dB")  * error(out_idx);
+
+                dPhi_dOm_Phi   = dPhi_dOm_Phi + ...                     % ACCUM Φ TERM
+                    CVLJac.("dPhi_"+string(out_idx)+"_dOm") * Phi(out_idx);    
+                dPhi_dB_Phi    = dPhi_dB_Phi + ...
+                    CVLJac.("dPhi_"+string(out_idx)+"_dB")  * Phi(out_idx);
+            end
+            % VECTORISE PARAMETERS
+            theta = [Om(:); B(:)];                                      % PARAMETER VECTOR
+            dtheta_error = [dPhi_dOm_error(:); dPhi_dB_error(:)];       % ERROR TERM
+            dtheta_Phi   = [dPhi_dOm_Phi(:);   dPhi_dB_Phi(:)];         % OUTPUT TERM
+
+            % ===============================================================
+            %  PRIMAL UPDATE (CVL WEIGHT UPDATE)
+            % ===============================================================
+            grad_theta = Gamma * ( ...
+                dtheta_error ...                                        % MAIN ERROR GRADIENT
+            - Lamda_Om(idx+1) * theta ...                               % CVL WEIGHT NORM CONSTRAINT
+            - Lambda_Out * dtheta_Phi ...                               % OUTPUT NORM CONSTRAINT
+            );
+
+            theta = theta + grad_theta * dt;                            % APPLY WEIGHT UPDATE
+            % WRITE BACK TO STRUCT
+            Om_size = numel(Om);
+            NN.("Omega"+string(idx))   = ...
+                reshape(theta(1:Om_size), size(Om));                    % UPDATE FILTERS
+            NN.("Omega_B"+string(idx)) = theta(Om_size+1:end);          % UPDATE BIASES
+            % ===============================================================
+            %  DUAL UPDATES FOR CVL
+            % ===============================================================
+            Lamda_Om(idx+1) = max(0, Lamda_Om(idx+1) + ...
+                Beta * constraint_slack(theta, Om_norms(idx+1)));       % CVL WEIGHT CONSTRAINT
         end
     end
-end
-
-%% LOCAL FUNCTIONS
-function grad = projGrad(grad_V, radius, vecV, Gamma, dt)
-    
-    next_V = vecV + grad_V*dt;
-    norm_nextV = norm(next_V);
-    
-    if sum(isnan(next_V))
-        grad = zeros(size(grad_V));
-    elseif norm_nextV <= radius
-        grad = grad_V;
-    else
-        grad = 1/dt*(-vecV+next_V/norm_nextV*radius);
+    % ===============================================================
+    %  DUAL UPDATE FOR OUTPUT NORM CONSTRAINT
+    % ===============================================================
+    Lambda_Out = max(0, Lambda_Out + ...
+                Beta * constraint_slack(Phi, NN_Out_norm));             % OUTPUT NORM CONSTRAINT
+    %% ===============================================================
+    %  STORE UPDATED LAGRANGE MULTIPLIERS
+    % ===============================================================
+    NN.paramCtrl.Lambda_V = Lamda_V;
+    NN.paramCtrl.Lambda_Out = Lambda_Out;
+    if CVLon
+        NN.paramCtrl.Lambda_Om = Lamda_Om;
     end
 
-    % % Gamma = eye(length(vecV)); % parameter in projection
-    % epsilon = 10; % for smooth projection
-    % 
-    % grad_f = 1/2*(vecV'*vecV)^(-1/2)*2*vecV;
-    % 
-    % next_V = vecV + grad_V*dt;
-    % 
-    % if norm(next_V) <= radius
-    %     grad = grad_V;
-    % % originally projection operator only work on boundary
-    % % however considering the discrete numerical computation
-    % % relaxed the condition
-    % else
-    %     grad = eye(length(vecV)) - Gamma*(grad_f*grad_f')/(grad_f'*Gamma*grad_f);
-    % 
-    %     grad = grad*grad_V;
-    % end
 end
 
-
+%% ===============================================================
+%  CONSTRAINT FUNCTION  c(x) = (||x||² - r²)/2
+% ===============================================================
+function c = constraint_slack(x, radius)
+    c = 0.5*(norm(x)^2 - radius^2);
+end

@@ -1,193 +1,160 @@
 function [] = resultReportPlot(result, paramSim)
+
 %% SAVE?
-saveResult = paramSim.saveResult;
+saveResult  = paramSim.saveResult;
 saveFigFile = paramSim.saveFigFile;
-exp_name = paramSim.exp_name;
+exp_name    = paramSim.exp_name;
 
 %% PLOT SETTING
 figure_name = [
-    "state and ref"
+    "state_and_ref"
     "error"
     "controls"
-    "weight norm"
+    "weight_norm"
 ];
 
-font_size = 24;
-axes_font_size = 18;
-font_name = "Times New Roman";
-line_width = 1.5;
+font_size       = 24;
+axes_font_size  = 18;
+font_name       = "Times New Roman";
+line_width      = 1.5;
 
 %% PREPARE
-t = result.t;
+t     = result.t;
 t_idx = result.t_idx;
-NN = result.NN;
+NN    = result.NN;
 
-X_hist = result.X_hist;  
-XD_hist = result.XD_hist;
-U_hist = result.U_hist;
-if NN.paramCtrl.CVLon
-    for Om_idx = 1:1:NN.paramCtrl.CVL_num+1
-        Om_hist.("Om"+string(Om_idx-1)) = result.Om_hist.("Om"+string(Om_idx-1));
-        Om_hist.("Om_B"+string(Om_idx-1)) = result.Om_hist.("Om_B"+string(Om_idx-1));
-    end
-end
-if NN.paramCtrl.LSTMon
-    gate_name = ["c", "i", "f", "o"];
-    for nn_idx = 1:1:length(gate_name)
-        gt_name = gate_name(nn_idx);        
-        W_hist.("W"+gt_name+"_hist") = result.("W"+gt_name+"_hist");
-    end
+Y_hist = result.Y_hist;  
+YD_hist = result.YD_hist;
+U_hist  = result.U_hist;
 
-end
-V_hist = result.V_hist;
-
-%% RESULT REPORT
+%% ==============================================================
+%% SIMULATION RESULT REPORT
+%% ==============================================================
 fprintf("===========================================\n")
 fprintf("             SIMULATION RESULT             \n")
-fprintf("===========================================\n")
-fprintf("\n")
-    
-err = X_hist - XD_hist;
-err = err.^2;
-err = sum(err, 2);
-err = sqrt(err);
+fprintf("===========================================\n\n")
+   
 
-for x_idx = 1:1:length(err)
-    fprintf("RMS Error (x%d): %.3f\n", x_idx, err(x_idx))
+err = Y_hist - YD_hist;
+err = sqrt(sum(err.^2, 2));
+
+for y_idx = 1:length(err)
+    fprintf("RMS Error (x%d): %.4f\n", y_idx, err(y_idx));
 end
 fprintf("\n")
 
-%% MAIN PLOT
-% ==============================================================
-% FIGURE(1) STATE 
+%% ==============================================================
+%% FIGURE (1) — STATE AND REFERENCE
+%% ==============================================================
 figure(1); clf
-num_x = size(X_hist,1);
+num_y = size(Y_hist,1);
 
-tl = tiledlayout(num_x,1);
+tiledlayout(num_y,1);
 
-gcf_tl = gcf;
-gcf_tl.Position(end) = 420;
+pos = get(gcf,"Position"); pos(4) = 420; set(gcf,"Position",pos);
 
-for x_idx = 1:1:num_x
+for y_idx = 1:num_y
     nexttile
-    plot(t(1:t_idx), X_hist(x_idx,1:t_idx), 'blue', "LineWidth", line_width); hold on
-    plot(t(1:t_idx), XD_hist(x_idx,1:t_idx), 'green', "LineWidth", line_width); hold on
-    ylabel("$x_1$", "FontSize", font_size, "Interpreter","latex")
+    plot(t(1:t_idx), Y_hist(y_idx,1:t_idx), 'blue', "LineWidth", line_width); hold on
+    plot(t(1:t_idx), YD_hist(y_idx,1:t_idx), 'green', "LineWidth", line_width);
+    ylabel("x_"+string(y_idx), "FontSize", font_size, "Interpreter","latex")
     xlabel("$t$ [s]", "FontSize", font_size, "Interpreter","latex")
     grid on
-    gca_tl = gca;
-    gca_tl.FontSize = axes_font_size;
-    gca_tl.FontName = font_name;
-    ylim([-2.5 2.5])
+    ax = gca; ax.FontSize = axes_font_size; ax.FontName = font_name;
 end
 
-% ==============================================================
-% FIGURE(2) ERROR
+%% ==============================================================
+%% FIGURE (2) — TRACKING ERROR
+%% ==============================================================
 figure(2); clf
-num_xd = size(XD_hist, 1);
+num_yd = size(YD_hist, 1);
 
-tl = tiledlayout(num_xd,1);
+tiledlayout(num_yd,1);
 
-gcf_tl = gcf;
-gcf_tl.Position(end) = 420;
+pos = get(gcf,"Position"); pos(4) = 420; set(gcf,"Position",pos);
 
-for xd_idx = 1:1:num_xd
+for yd_idx = 1:num_yd
     nexttile
-    plot(t(1:t_idx), (XD_hist(xd_idx,1:t_idx) - X_hist(xd_idx,1:t_idx)), 'blue', "LineWidth", line_width); hold on
-    ylabel("$x^*_1 - x_1$", "FontSize", font_size, "Interpreter","latex")
+    plot(t(1:t_idx), YD_hist(yd_idx,1:t_idx) - Y_hist(yd_idx,1:t_idx), ...
+        'blue', "LineWidth", line_width); hold on
+    
+    ylabel("e_"+string(yd_idx), "FontSize", font_size, "Interpreter","latex")
     xlabel("$t$ [s]", "FontSize", font_size, "Interpreter","latex")
     grid on
-    gca_tl = gca;
-    gca_tl.FontSize = axes_font_size;
-    gca_tl.FontName = font_name;
+    ax = gca; ax.FontSize = axes_font_size; ax.FontName = font_name;
 end
 
-% ==============================================================
-% FIGURE(3) INPUT
+%% ==============================================================
+%% FIGURE (3) — CONTROL INPUT
+%% ==============================================================
 figure(3); clf
 num_u = size(U_hist,1);
 
-tl = tiledlayout(num_u ,1);
+tiledlayout(num_u ,1);
 
-gcf_tl = gcf;
-gcf_tl.Position(end) = 420;
+pos = get(gcf,"Position"); pos(4) = 420; set(gcf,"Position",pos);
 
-for u_idx = 1:1:num_u 
-    nexttile 
+for u_idx = 1:num_u
+    nexttile
     plot(t(1:t_idx), U_hist(u_idx,1:t_idx), 'blue', "LineWidth", line_width); hold on
-    ylabel("$u_1$", "FontSize", font_size, "Interpreter","latex")
+    ylabel("u_"+string(u_idx), "FontSize", font_size, "Interpreter","latex")
     xlabel("$t$ [s]", "FontSize", font_size, "Interpreter","latex")
     grid on
-    gca_tl = gca;
-    gca_tl.FontSize = axes_font_size;
-    gca_tl.FontName = font_name;
+    ax = gca; ax.FontSize = axes_font_size; ax.FontName = font_name;
 end
 
-% ==============================================================
-% FIGURE(4) network weight Frobenius norm
+%% ==============================================================
+%% FIGURE (4) — WEIGHT NORM (CVL + FCL)
+%% ==============================================================
 figure(4); clf
 
-gcf_tl = gcf;
-gcf_tl.Position(end) = 420;
+pos = get(gcf,"Position"); pos(4) = 420; set(gcf,"Position",pos);
 
+hold on
+
+%% === CVL PLOTS ===
 if NN.paramCtrl.CVLon
-    for Om_idx = 1:1:NN.paramCtrl.CVL_num+1
-        Om_norm = Om_hist.("Om"+string(Om_idx-1));
-        B_norm = Om_hist.("Om_B"+string(Om_idx-1));
-        for filter_idx = 1:1:size(Om_norm, 1)
-            plot(t, Om_norm(filter_idx,:), ...
-                'DisplayName', "\Omega_"+string(Om_idx-1)+":W_"+string(filter_idx) ...
-                , "LineWidth", line_width); hold on
-        end
-        plot(t, B_norm, 'DisplayName', "B_"+string(Om_idx-1) ...
-            , "LineWidth", line_width); hold on
+    for Om_idx = 1:NN.paramCtrl.CVL_num+1
+        Om_Combined_norm = result.Om_hist.("Om_Combined"+string(Om_idx-1));
+        plot(t(1:t_idx), Om_Combined_norm(1,1:t_idx), ...
+            'DisplayName', "\Omega_"+string(Om_idx-1), ...
+            "LineWidth", line_width);
     end
 end
 
-if NN.paramCtrl.LSTMon
-   gate_name = ["c", "i", "f", "o"];
-    for nn_idx = 1:1:length(gate_name)
-        gt_name = gate_name(nn_idx);
-        w_hist = W_hist.("W"+gt_name+"_hist");
-        plot(t, w_hist, ...
-                'DisplayName', "W_"+gt_name ...
-                , "LineWidth", line_width); hold on
-    end
+%% === FCL PLOTS ===
+for V_idx = 1:1:NN.paramCtrl.FCL_num+1
+    plot(t, result.V_hist(V_idx,:), ...
+        'DisplayName', "V_"+string(V_idx-1), ...
+        "LineWidth", line_width);
 end
 
-for V_idx = 1:1:NN.paramCtrl.FCL_num
-    plot(t, V_hist(V_idx,:), 'DisplayName', "V_"+string(V_idx-1) ...
-        , "LineWidth", line_width); hold on
-end
-ylabel("Weight Nrom", "FontSize", font_size, "Interpreter","latex")
+ylabel("Weight Norm", "FontSize", font_size, "Interpreter","latex")
 xlabel("$t$ [s]", "FontSize", font_size, "Interpreter","latex")
 grid on
-lgd = legend;
+
+lgd = legend; 
 lgd.Location = "northeast";
-% lgd.Layout([3,[]])
-lgd.NumColumns = 4;
+lgd.NumColumns = 3;
 lgd.FontSize = 15;
-gca_tl = gca;
-gca_tl.FontSize = axes_font_size;
-gca_tl.FontName = font_name;
+
+ax = gca; ax.FontSize = axes_font_size; ax.FontName = font_name;
 
 %% SAVE RESULT
 if saveResult 
     result_dir = "result/" + string(exp_name);
 
     if ~exist(result_dir, 'dir')
-       mkdir(result_dir);
+        mkdir(result_dir);
     end
 
-    save(result_dir + "/" + "result.mat", "result");
+    save(result_dir + "/result.mat", "result");
 
-    for j = 1:1:length(figure_name)
+    for j = 1:length(figure_name)
         if saveFigFile
-        saveas(figure(j), ...
-            result_dir + "/" + figure_name(j) + ".fig")
+            saveas(figure(j), result_dir + "/" + figure_name(j) + ".fig")
         end
-        saveas(figure(j), ...
-            result_dir + "/" + figure_name(j) + ".png")        
+        saveas(figure(j), result_dir + "/" + figure_name(j) + ".png")
     end
 end
 

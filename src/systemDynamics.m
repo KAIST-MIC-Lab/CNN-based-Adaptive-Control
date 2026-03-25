@@ -1,45 +1,51 @@
-function x_dot = systemDynamics(x, u, Plant)
-% x = [Y (Global), vy (body), Psi (Global), r (body), beta, theta_f, theta_r]
-% u = [w_f, w_r] (Steering input rates)
+function x_dot = systemDynamics(x, u, Plant, Ref)
+    % x = [e_y, e_y_dot, e_psi, e_psi_dot, theta_1, theta_2]
+    % u = [w_1, w_2] (Steering input rates)
 
-%% Physical Parameters from Plant Structure
-m    = Plant.m;    
-Iz   = Plant.Iz;   
-lf   = Plant.lf;   
-lr   = Plant.lr;   
-Cf   = Plant.Cf;   
-Cr   = Plant.Cr;  
-Fmax = Plant.Fmax; 
-vx   = Plant.vx;  
-delay_time= Plant.delay_time;  
+    %% PHYSICAL PARAMETERS
+    m    = Plant.m;    
+    Iz   = Plant.Iz;   
+    l1   = Plant.l1;   
+    l2   = Plant.l2;   
+    C1   = Plant.C1;   
+    C2   = Plant.C2;  
+    Fmax = Plant.Fmax; 
+    vx   = Plant.vx;   
+    tau  = Plant.tau;                                             % ACTUATOR TIME CONSTANT
 
-%% State Extraction
-vy      = x(2); 
-Psi     = x(3); 
-r       = x(4); 
-beta    = x(5);
-theta_f = x(6); 
-theta_r = x(7); 
+    %% REFERENCE INPUTS
+    psi_dot_des  = Ref.psi_dot_des;                               % DESIRED YAW RATE
+    psi_ddot_des = Ref.psi_ddot_des;                              % DESIRED YAW ACCELERATION
 
-%% Non-Linear Tire Force Model 
-alpha_f = beta + lf*r/vx - theta_f; 
-alpha_r = beta - lr*r/vx - theta_r;
+    %% STATE EXTRACTION
+    ey        = x(1);                                             % LATERAL ERROR
+    ey_dot    = x(2);                                             % LATERAL ERROR RATE
+    e_psi     = x(3);                                             % HEADING ERROR
+    e_psi_dot = x(4);                                             % HEADING ERROR RATE
+    theta_1   = x(5);                                             % FRONT WHEEL STEER ANGLE
+    theta_2   = x(6);                                             % REAR WHEEL STEER ANGLE
 
-% F = Fmax * tanh( (C/Fmax) * alpha ) 
-F_f = -Fmax * tanh((Cf/Fmax) * alpha_f); 
-F_r = -Fmax * tanh((Cr/Fmax) * alpha_r);
+    %% SLIP ANGLE CALCULATION 
+    alpha_1 = theta_1 - (ey_dot - vx*e_psi + l1*(e_psi_dot + psi_dot_des)) / vx;
+    alpha_2 = theta_2 - (ey_dot - vx*e_psi - l2*(e_psi_dot + psi_dot_des)) / vx;
 
-%% Governing Rate Equations
-Y_dot = vy*cos(Psi) + vx*sin(Psi); 
-Psi_dot = r; 
-vy_dot = (F_f + F_r)/m - vx*r; 
-r_dot = (lf*F_f - lr*F_r)/Iz; 
-beta_dot = (F_f + F_r)/(m*vx) - r; 
-theta_f_dot = (u(1)-theta_f)/delay_time;
-theta_r_dot = (u(2)-theta_r)/delay_time; 
+    %% NON-LINEAR TIRE FORCE MODEL 
+    F_1 = Fmax * tanh((C1 / Fmax) * alpha_1);                     % FRONT TIRE FORCE
+    F_2 = Fmax * tanh((C2 / Fmax) * alpha_2);                     % REAR TIRE FORCE
 
-%% Derivative Vector Construction
-x_dot = [Y_dot; vy_dot; Psi_dot; r_dot;...
-        beta_dot; theta_f_dot; theta_r_dot];
+    %% GOVERNING ERROR DYNAMICS 
+    ey_ddot    = (F_1 + F_2)/m + vx*e_psi_dot - vx*psi_dot_des;   % LATERAL ERROR ACCELERATION
+    e_psi_ddot = (l1*F_1 - l2*F_2)/Iz - psi_ddot_des;             % YAW ERROR ACCELERATION
 
+    %% ACTUATOR'S LAG DYNAMICS
+    theta_1_dot = (u(1) - theta_1) / tau;                         % FRONT ACTUATOR DYNAMICS
+    theta_2_dot = (u(2) - theta_2) / tau;                         % REAR ACTUATOR DYNAMICS
+
+    %% DERIVATIVE VECTOR CONSTRUCTION
+    x_dot = [ey_dot;      ...                                     % X1_DOT
+             ey_ddot;     ...                                     % X2_DOT
+             e_psi_dot;   ...                                     % X3_DOT
+             e_psi_ddot;  ...                                     % X4_DOT
+             theta_1_dot; ...                                     % X5_DOT
+             theta_2_dot];                                        % X6_DOT
 end

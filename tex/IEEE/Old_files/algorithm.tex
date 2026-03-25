@@ -1,0 +1,67 @@
+\documentclass{article}
+\usepackage{amsmath, amssymb}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+
+\title{CNN-Adaptive}
+
+
+\begin{document}
+
+
+\section{Algorithm}
+\begin{algorithm}[H]
+\caption{CNN-Adaptive Control Loop}
+\DontPrintSemicolon
+
+\SetKwBlock{Init}{Initialization:}{}
+\Init{
+    Define vehicle parameters: $m, I_z, l_f, l_r, C_{\alpha f}, C_{\alpha r}, \tau$\;
+    Set path $P(X,Y)=0$\;
+    Initialize vehicle state $\mathbf{x}_0 = [X_v, Y_v, \psi, v_y, r, \theta_f, \theta_r]^T$\;
+    Pre-fill history buffer $\mathcal{W}_0$ with zeros\;
+}
+\BlankLine
+
+\textsf{// Per-iteration Control Loop}\;
+\For{$t = 0$ \KwTo $T_{end}$}{
+    \textsf{// 1. Perception \& Error Extraction}\;
+      $(X^*, Y^*) \leftarrow \arg\min\limits_{(X,Y)} (X - X_v)^2 + (Y - Y_v)^2$ \\
+     \hspace{1.5em} \text{s.t. } P(X,Y)=0 \\
+    % Define the tangent components using the property that Gradient is orthogonal to Tangent
+    $T_X \leftarrow -P_{Y^*}, \quad T_Y \leftarrow P_{X^*}$ \tcp*{Unit Tangent Vector}
+    $T_{norm} \leftarrow \sqrt{T_X^2 + T_Y^2}$\;
+    $\hat{T}_X \leftarrow T_X/T_{norm}, \quad \hat{T}_Y \leftarrow T_Y/T_{norm}$\;
+
+    \BlankLine
+    $e_y \leftarrow \operatorname{sgn}\big((X_v-X^*)\hat{T}_Y - (Y_v-Y^*)\hat{T}_X\big) \cdot \sqrt{(X_v - X^*)^2 + (Y_v - Y^*)^2}$\;
+    $e_\psi \leftarrow \operatorname{normalize}\big(\operatorname{atan2}(\hat{T}_Y, \hat{T}_X) - \psi\big)$\;
+    \BlankLine
+
+    \BlankLine
+    \textsf{// 2. Neural Adaptive Model (NAM) Inference}\;
+    $\boldsymbol{\xi}_t \leftarrow [e_y, e_\psi, \omega_{f,t-1}, \omega_{r,t-1}]^T$\;
+    $\mathcal{W}_t \leftarrow [\boldsymbol{\xi}_{t-N}, \dots, \boldsymbol{\xi}_t]$\;
+    $\mathbf{z} \leftarrow \text{1D-CNN}(\mathcal{W}_t)$ \tcp*{Spatial-temporal feature extraction}
+    $\mathbf{u}_t = [\omega_{f,t}, \omega_{r,t}]^T \leftarrow \text{MLP}(\mathbf{z})$ \tcp*{Adaptive control output}
+
+    \BlankLine
+    \textsf{// 3. Plant Dynamics Update}\;
+    $\dot{\theta}_{f,r} \leftarrow \frac{1}{\tau}(\omega_{f,r} - \theta_{f,r})$ \tcp*{Actuator lag}
+    $\alpha_{f} \leftarrow \theta_f - \frac{v_y + l_f r}{v_x}, \quad \alpha_{r} \leftarrow \theta_r - \frac{v_y - l_r r}{v_x}$\;
+    $F_{yf,yr} \leftarrow F_{max} \tanh\left(\frac{C_{\alpha}}{F_{max}} \alpha_{f,r}\right)$\;
+    
+    \BlankLine
+    \textsf{// 4. Numerical Integration}\;
+    $\dot{v}_y \leftarrow \frac{F_{yf} + F_{yr}}{m} - v_x r, \quad \dot{r} \leftarrow \frac{l_f F_{yf} - l_r F_{yr}}{I_z}$\;
+    $\dot{X_v} \leftarrow v_x \cos\psi - v_y \sin\psi, \quad \dot{Y_v} \leftarrow v_x \sin\psi + v_y \cos\psi, \quad \dot{\psi} \leftarrow r$\;
+    Update state $\mathbf{x}_{t+1}$
+}
+\end{algorithm}
+
+% The lateral dynamics can be modeled as:
+% \begin{align}
+    
+% \end{align}
+
+
+\end{document}

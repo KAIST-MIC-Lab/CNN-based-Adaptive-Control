@@ -1,7 +1,7 @@
 function NN = paramCtrl_load(paramSim)
     %% NEURAL NETWORK PARAMETERS CONTROL LOAD
     NN.paramCtrl.CVLon = 1;                                         % CVL ON/OFF
-    NN.paramCtrl.Gamma = 100;                                       % LEARNING RATE
+    NN.paramCtrl.Gamma = 10;                                       % LEARNING RATE
     NN.paramCtrl.Beta = 1e-06;                                      % LAGRANGE MULTIPLIER LEARNING RATE (BETA_i, single value for simplicity)
     %NN.paramCtrl.initRangeCVL = 0.1;                               % CVL WEIGHTS INITIALIZATION RANGE(UNIFORM)
     %NN.paramCtrl.initRangeFCL = 0.1;                               % FCL WEIGHTS INITIALIZATION RANGE(UNIFORM)

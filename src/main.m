@@ -3,7 +3,7 @@
 %  CONAC-CVL CONTROL SIMULATION MAIN SCRIPT
 %  Original Author: Myeongseok Ryu
 %  Modified by: Naol Samuel
-%  Last Modified: 2025:12:08
+%  Last Modified: 2026-03-23
 % ===========================================================================   
 %% 
 clear;
@@ -21,13 +21,21 @@ paramSim.seed_num =  130;
 
 %% SIMULATION PARAMETERS
 paramSim.dt = 1e-2;                                                 % SAMPLING TIME STEP
-paramSim.T = 5;                                                     % TERMINAL TIME
+paramSim.T = 50;                                                     % TERMINAL TIME
 t = 0:paramSim.dt:paramSim.T;
 rpt_dt = 1;
 
-x = [0; 0; 0; 0; 0; 0; 0];                                          % INITIAL STATE, in R^7
-u = [0; 0];                                                         % Target steering angles
-y=  [0; 0;];
+% x = [e_y, e_y_dot, e_psi, e_psi_dot, theta_1, theta_2]
+% u = [w_1, w_2] (Steering input rates)
+x = zeros(6,1);                                                   % INITIAL STATE
+u = zeros(2,1);                                                   % INITIAL CONTROL INPUT
+y = [0; 0];                                                       % INITIAL OUTPUT (LATERAL AND HEADING) IN BODY FRAME
+psi_des = 0;                                                      % INITIAL DESIRED HEADING
+yd= [0; psi_des];                                                 % DESIRED OUTPUT (LATERAL Displacement= 0, HEADING = psi_des)
+
+X_glob = 0;                                                       % INITIAL GLOBAL X COORDINATE
+Y_glob = 0;                                                       % INITIAL GLOBAL Y COORDINATE
+
 
 
 
@@ -40,26 +48,22 @@ paramSim.exp_name = datetime('now','TimeZone','local', ...
 %% SYSTEM SPECIFICATIONS
 Plant = paramPlant_load();
 
-%% REFERENCE
-% Target states: [Y_ref; vy_ref; Psi_ref; r_ref]
-ref_Traj = @(t) [ 
-    2*sin(0.5*t);                                                  % Global Y path
-    0.5*cos(0.5*t);                                                % Global Psi (Heading)
-    ];    
+%% REFERENCE TRAJECTORY
+ref_Traj = @(t) get_ref(t, Plant);                                  % REFERENCE TRAJECTORY FUNCTION HANDLE   
 
 
 %% NEURAL NETWORK DECLARE
 NN = paramCtrl_load(paramSim);
 NN = init_NN(NN);
 
+
 %% REPORT SIMULATION SETTING
 reportSim(NN, paramSim);
 
 %% RECORDER
-recordPrepare     
-                                                                    % PREPARE TRAJECTORY RECORDERS
+recordPrepare                                                       % PREPARE TRAJECTORY RECORDERS
 %% MAIN LOOP
-dataset_y = zeros( ...                                              % BUFFER FROM WHICH CVL INPUTS ARE SAMPLED
+stk_in= zeros( ...                                                  % BUFFER FROM WHICH CVL INPUTS ARE SAMPLED
     NN.paramCtrl.size_CVL_input(1)*int64(NN.paramCtrl.input_dt/NN.paramCtrl.dt), ...
     NN.paramCtrl.size_CVL_input(2));
 
@@ -70,29 +74,48 @@ fprintf("\n")
     
 try 
     for t_idx = 2:1:length(t)
-        %% 1. ERROR CALCULATION
-        yd = ref_Traj(t(t_idx));
-        y  = [x(1); x(3)];                            % Extract actual tracking output
-        e  = y - yd;                            
-    
+        %% 1. REFERENCE
+        Ref = ref_Traj(t(t_idx));                                   % GET REFERENCE AT CURRENT TIME
+        psi_des = psi_des + Ref.psi_dot_des * paramSim.dt;          % UPDATE DESIRED HEADING
+        yd = [0; psi_des];                                                 % UPDATE DESIRED OUTPUT
+
+
+        %% 2. NN INPUT PREPARATION
+        e= [x(1); x(3)];                                            % ERROR SELECTION (LATERAL AND HEADING ERROR)
+        nn_input= [e; u]/1000;                                      % CURRENT ERROR AND CONTROL INPUT AS NN INPUT
+        
+            
         %% 2. CONTROL LAW CALCULATION
-        % RECTIFIED: Pass 'y' (4x1) instead of 'x' (7x1) to match (10, 4) CVL input
-        [NN_Out, NN, dataset_y] = NNforward(NN, y, yd, u, dataset_y, t(t_idx));
-        u = -NN_Out;
+        [NN_Out, NN, dataset_y] = NNforward(NN, nn_input, stk_in, t(t_idx));
+        u = NN_Out
         
         %% 3. SYSTEM STEP
-        x_dot = systemDynamics(x, u, Plant);    % Use full 7-D physics
+        x_dot = systemDynamics(x, u, Plant, Ref);    
         x = x + x_dot * paramSim.dt;
-        % y is updated at the start of the next loop iteration
+
+        y_dot=[ x(2) - Plant.vx*x(3); 
+                x(4)]+ Ref.psi_dot_des;                           % OUTPUT DERIVATIVE CALCULATION
+
+        y = y + y_dot * paramSim.dt;                              % OUTPUT UPDATE
+
+
+        % GLOBAL POSITION UPDATE FOR VISUALIZATION
+        beta = (x(2) + Plant.vx * x(3)) / Plant.vx;               % SIDESLIP ANGLE CALCULATION                                        % CURRENT GLOBAL HEADING
+        X_dot_glob = Plant.vx * cos(y(2) + beta);            % GLOBAL X DOT WITH SIDESLIP
+        Y_dot_glob = Plant.vx * sin(y(2) + beta);
+        X_glob = X_glob + X_dot_glob * paramSim.dt;               % GLOBAL X UPDATE
+        Y_glob = Y_glob + Y_dot_glob * paramSim.dt;
         
         %% 4. NEURAL NETWORK TRAINING
         NN = NNtrain(NN, e);
     
         %% 5. RECORDING
         result.Y_hist(:, t_idx)  = y;
-        result.YD_hist(:, t_idx) = yd;
+        result.YD_hist(:, t_idx) = yd;  
         result.U_hist(:, t_idx)  = u;
         result.E_hist(:, t_idx)  = e;
+        result.XY_pos(:, t_idx) = [X_glob; Y_glob];                 % RECORD GLOBAL POSITION FOR VISUALIZATION
+        result.XY_pos_des(:, t_idx) = [Ref.X_des; Ref.Y_des];       % RECORD DESIRED GLOBAL POSITION FOR VISUALIZATION
        
         if NN.paramCtrl.CVLon                                       % RECORD WEIGHTS NORM OF CVL: Om and Om_B combined 
             for Om_idx = 1:1:NN.paramCtrl.CVL_num+1

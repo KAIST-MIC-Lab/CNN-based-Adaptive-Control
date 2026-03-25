@@ -9,6 +9,8 @@ result.Y_hist  = zeros(num_outs, length(t));
 result.YD_hist = zeros(num_outs, length(t));  
 result.U_hist  = zeros(num_input, length(t));  
 result.E_hist  = zeros(num_outs, length(t));
+result.XY_pos= zeros(2, length(t));                                                 % FOR RECORDING XY POSITION OF THE VEHICLE                             
+result.XY_pos_des = zeros(2, length(t));                                             % FOR RECORDING DESIRED XY POSITION OF THE VEHICLE
 
 %% ====== CVL WEIGHT HISTORY CONTAINER (STRUCT OF ARRAYS) ======
 result.Om_hist = struct();
@@ -35,7 +37,7 @@ result.V_hist = zeros(NN.paramCtrl.FCL_num+1, length(t));
 %    INITIAL RECORDING (k = 1)
 %% ============================================================
 result.Y_hist(:,1)  = y;
-result.YD_hist(:,1) = ref_Traj(0);
+result.YD_hist(:,1) = yd;
 result.U_hist(:,1)  = u;
 
 %% ====== RECORD CVL WEIGHT NORMS AT TIME INDEX 1 ======

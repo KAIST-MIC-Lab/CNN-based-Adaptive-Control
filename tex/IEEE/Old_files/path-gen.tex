@@ -1,0 +1,125 @@
+\documentclass{article}
+\usepackage{amsmath, amssymb}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+
+\title{CNN-Adaptive}
+\author{-}
+
+
+\begin{document}
+
+\maketitle
+
+\section{Method 1: Clothoid Path}
+
+\subsection{Path Generation}
+The reference path $P(X,Y)=0$ istransitions from a straight line to a 
+circle of radius $R$. 
+Let $s$ denote the arc length and $L$ the transition length.
+
+Clothoid Spiral ($0 \le s \le L$):  Using the standard Fresnel Formulation:
+\[
+a = \sqrt{R L \pi},
+\]
+the path is defined as:
+\begin{align}
+X(t) &= a \int_{0}^{t} \cos\left(\frac{\pi u^2}{2}\right)\, du \\
+Y(t) &= a \int_{0}^{t} \sin\left(\frac{\pi u^2}{2}\right)\, du
+\end{align}
+
+
+
+
+\subsection{Optimal Point Identification}
+
+The optimal point $(X^*, Y^*)$ is defined as the orthogonal projection of the 
+vehicle position $(X_v, Y_v)$ onto the path.
+
+The optimal parameter $t^*$ is obtained by solving:
+\begin{align}
+t^* = \arg \min_{t} \; (X_v - X(t))^2 + (Y_v - Y(t))^2
+\end{align}
+The first order optimality condition is:
+\begin{align}
+\frac{d}{dt} \left((X_v - X(t))^2 + (Y_v - Y(t))^2\right) \Big|_{t=t^*} = 0
+\end{align}
+Which simplifies to:
+\begin{align}(X_v - X(t^*)) \dot X(t^*) + (Y_v - Y(t^*)) \dot Y(t^*) = 0
+\end{align}
+And using equations (1) and (2):
+\begin{align}(X_v - X(t^*)) \cos\left(\frac{\pi (t^*)^2}{2}\right) + (Y_v - Y(t^*)) 
+    \sin\left(\frac{\pi (t^*)^2}{2}\right) = 0
+\end{align} 
+
+The solution $t^*$ is obtained numerically (e.g., Newton–Raphson), and:
+\[
+X^* = X(t^*), \quad Y^* = Y(t^*)
+\]
+
+
+\subsection{Error Extraction}
+At $(X^*, Y^*)$, the reference states are:
+\begin{align}
+\psi_{\mathrm{des}} &= \frac{\pi (t^*)^2}{2} \\
+\end{align}
+
+\textbf{Lateral Error:}
+\begin{equation}
+    D= \sqrt{(X_v - X^*)^2 + (Y_v - Y^*)^2}
+\end{equation}
+\begin{equation}    
+    e_y = \operatorname{sgn} \left( (X_v - X^*)P_Y - (Y_v - Y^*)P_X \right) \cdot D
+\end{equation}
+
+
+\textbf{Heading Error:}
+\begin{align}
+e_\psi = \operatorname{normalize}(\psi_v - \psi_{\mathrm{des}})
+\end{align}
+
+
+
+
+
+
+\section{Method 2: Simple Polynomial Path (Cubic Approximation)}
+
+\subsection{Path Generation}
+For small deflection angles, the linear increase in curvature can be modeled using a cubic polynomial:
+\begin{equation}
+Y(X) = k X^3
+\end{equation}
+where $k$ is a scaling constant. The first and second derivatives are:
+\begin{align}
+Y'(X) &= 3k X^2 \\
+Y''(X) &= 6k X
+\end{align}
+
+\subsection{Curvature Analysis}
+The exact curvature formula is:
+\begin{equation}
+\kappa(X) = \frac{Y''(X)}{\left(1 + (Y'(X))^2\right)^{3/2}} = \frac{6kX}{\left(1 + 9k^2 X^4\right)^{3/2}}
+\end{equation}
+For $X \approx 0$ (the start of the transition), the denominator is approximately $1$, yielding:
+\begin{equation}
+\kappa(X) \approx 6kX
+\end{equation}
+This confirms that the curvature increases linearly with the coordinate $X$.
+
+\subsection{Optimal Point Identification}
+The optimal point $(X^*, Y^*)$ for a vehicle at $(X_v, Y_v)$ is found by minimizing:
+\begin{equation}
+X^* = \arg \min_{X} \; (X - X_v)^2 + (k X^3 - Y_v)^2
+\end{equation}
+The optimality condition (where the distance vector is orthogonal to the tangent) results in a 5th-degree polynomial:
+\begin{equation}
+(X^* - X_v) + 3k(X^*)^2(k(X^*)^3 - Y_v) = 0
+\end{equation}
+
+\subsection{Error Extraction}
+The desired heading $\psi_{\mathrm{des}}$ at the optimal point is:
+\begin{equation}
+\psi_{\mathrm{des}} = \operatorname{atan}(3k (X^*)^2)
+\end{equation}
+The lateral error $e_y$ and heading error $e_\psi$ are calculated using the same geometric logic as in Method 1.
+\end{document}

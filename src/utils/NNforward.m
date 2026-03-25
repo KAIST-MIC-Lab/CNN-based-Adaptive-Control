@@ -1,11 +1,9 @@
-function [NN_Out, NN, dataset_y] = NNforward(NN, y, yd, u, dataset_y, t)
+function [NN_Out, NN, stk_in] = NNforward(NN, nn_input, stk_in, t)
     %% PREPARE
     paramCtrl = NN.paramCtrl;
     CVLon = NN.paramCtrl.CVLon;
 
-    %% NN INPUT CONSTRUCTION
-    error = y-yd;
-    nn_input = [error;u]/1000;                                  % NN INPUT CONSTRUCTION
+    %%  t_idx CALCULATION
     if isscalar(t)
         current_time = t;
         t_idx = round(current_time / NN.paramCtrl.dt) + 1;        % CALCULATE INDEX (must be >= 2)
@@ -14,8 +12,8 @@ function [NN_Out, NN, dataset_y] = NNforward(NN, y, yd, u, dataset_y, t)
     end
 
     if NN.paramCtrl.CVLon                                        
-        dataset_y(1:end-1, :) = dataset_y(2:end, :);              % UPDATE BUFFER AT SIMULATION STEP
-        dataset_y(end, :) = nn_input';
+        stk_in(1:end-1, :) = stk_in(2:end, :);                    % UPDATE BUFFER AT SIMULATION STEP
+        stk_in(end, :) = nn_input';
         
         % SLOW STACKING LOGIC
         NN_dt = NN.paramCtrl.dt;                                  % SIMULATION TIME STEP
@@ -27,18 +25,17 @@ function [NN_Out, NN, dataset_y] = NNforward(NN, y, yd, u, dataset_y, t)
                                                                  
             indices = int64(1:1:IN_H) * UP_steps;
             % Sample CVL INPUT and store it for persistence
-            NN.paramCtrl.stk_x = dataset_y(indices, :);           % STACKED INPUT PERSISTENCE 
+            NN.paramCtrl.stk_x = stk_in(indices, :);           % STACKED INPUT PERSISTENCE 
             
             % Check if the indices exceed the buffer size
-            if max(indices) > size(dataset_y, 1)
-                 error("CVL input history is larger than dataset_y buffer size. Increase buffer size in main script.")
+            if max(indices) > size(stk_in, 1)
+                 error("CVL input history is larger than stk_in buffer size. Increase buffer size in main script.")
             end
         end
         
         % Use the last stored stacked input 
         stacked_x = NN.paramCtrl.stk_x;                           % USE PERSISTENT STACKED INPUT 
     end
-    disp("reached")
     lgn = 2;                                                      % LOGISTIC FUNCTION GAIN
     mx = 100;                                                     % SCALING FACTOR
 

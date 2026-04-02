@@ -1,0 +1,442 @@
+\documentclass[letterpaper, journal]{IEEEtran}
+
+\def\cmt{true} % true for comments, false for no comments
+\def\pub{false} % true for publication, false for draft
+\newcommand*{\template}{template} 
+\input{\template/preamble/preamble_journal.tex}
+\allowdisplaybreaks
+
+
+% ==========================================
+% will be uploaded in template repo
+\usepackage{microtype}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,calc,angles,quotes,positioning}
+
+\graphicspath{{\FIGURESPATH/}}
+
+% Symbols reused in the controller-design section.
+\newcommand{\matPhi}{\mathbf{\Phi}}
+\newcommand{\PhiC}{\Phi_{j_c}^{C}}
+\newcommand{\phiC}{\phi_{j_c}^{C}}
+\newcommand{\phiF}{\phi_{j_f}^{F}}
+\newcommand{\tH}{\tilde{H}}
+
+\newcommand*{\Ff}{F_f}
+\newcommand*{\Fr}{F_r}
+\newcommand*{\delf}{\delta_f}
+\newcommand*{\delr}{\delta_r}
+\newcommand*{\lf}{l_f}
+\newcommand*{\lr}{l_r}
+\newcommand*{\alpf}{\alpha_f}
+\newcommand*{\alpr}{\alpha_r}
+\newcommand*{\Cf}{C_f}
+\newcommand*{\Cr}{C_r}
+% ==========================================
+
+\newcommand*{\figSizeTwoCol}{.49}
+\newcommand*{\figSizeOneCol}{0.98}
+
+\newcommand{\src}{./src}
+
+\begin{document}
+\bstctlcite{IEEEexample:BSTcontrol}
+
+\title{
+  Neuro-Adaptive Control Without State Measurement: A 1D-CNN Framework for Higher-Order Systems Using Historical Output Data
+} %% Article title
+
+\author{
+  Myeongseok Ryu, Naol Samuel Erega, and Kyunghwan Choi
+\thanks{
+  Myeongseok Ryu, Naol Samuel Erega and Kyunghwan Choi are with the Cho Chun Shik Graduate School of Mobility, Korea Advanced Institute of Science and Technology (KAIST), Daejeon 34051, Korea (e-mail: dding\_98@kaist.ac.kr, samuelnaol7@kaist.ac.kr and kh.choi@kaist.ac.kr).
+
+  \MSRY{Should be reviewed}
+  \cred{
+      This work was supported in part by a Korea Research Institute for Defense Technology planning and advancement (KRIT) grant funded by Korea government DAPA (Defense Acquisition Program Administration) (No. KRIT-CT-22-087, Synthetic Battlefield Environment based Integrated Combat Training Platform) and in part by the National Research Foundation of Korea (NRF) grant funded by the Korea government (MSIT) (RS-2025- 00554087). (Corresponding author: Kyunghwan Choi)
+  }
+  }
+}
+
+\markboth{Journal of \LaTeX\ Class Files,~Vol.~18, No.~9, September~2020}%
+{How to Use the IEEEtran \LaTeX \ Templates}
+
+\maketitle
+
+% ==========================================
+% Abstract and Keywords
+% ==========================================
+
+\begin{abstract}
+  This study proposes a convolutional neural network (CNN)-based adaptive controller with three notable features: 1) it determines control input directly from historical sensor data; 2) it learns the desired control policy during real-time implementation without using a pre-trained network; and 3) the asymptotic tracking error convergence is proven during the learning process. 
+  An adaptive law for learning the desired control policy is derived using the gradient descent optimization method, and its stability is analyzed based on the Lyapunov approach. 
+  A simulation study using a control-affine nonlinear system demonstrated that the proposed controller exhibits these features, and its performance can be tuned by manipulating the design parameters. 
+  In addition, it is shown that the proposed controller has a superior tracking performance to that of a deep neural network (DNN)-based adaptive controller.    
+\end{abstract}
+
+
+\begin{IEEEkeywords}
+  Neuro-adaptive control, convolutional neural network (CNN), ...
+\end{IEEEkeywords}
+
+% ==========================================    
+% NOTATION
+% ==========================================
+
+
+\section*{Notation}
+In this study, the following notation is used:
+\begin{itemize}
+  \item $\R^n$ denotes the $n$-dimensional Euclidean space.
+  \item $\R^{n\times m}$ denotes the set of $n\times m$ real matrices.
+  \item A vector and a matrix are denoted by $\mv{x}=[x_i]\in\R^n$ and $\mm
+          A:=[a_{ij}]\in\R^{n\times m}$, respectively.
+  \item $\mm I_n$ denotes the $n\times n$ identity matrix, and $\mm 0_{n\times
+              m}$ denotes the $n\times m$ zero matrix.
+  \item $\myvec(\mm A)$ denotes the vectorization of the matrix $\mm A$.
+  \item A matrix $\mm P \succ 0$ ($\mm P \succeq 0$) is positive definite
+          (positive semidefinite).
+  \item $\lambda_{\min}(\mm A)$ denotes the minimum eigenvalue of the matrix
+          $\mm A \in \R^{n \times n}$.
+  \item $\otimes$ denotes the Kronecker product \cite{Bernstein:2009aa}.
+\end{itemize}
+
+
+% ==========================================
+% I: Introduction
+% ==========================================
+
+\section{INTRODUCTION}
+This document is a model and instructions for \LaTeX.
+Please observe the conference page limits. For more information about how to become an IEEE Conference author or how to write your paper, please visit   IEEE Conference Author Center website: https://conferences.ieeeauthorcenter.ieee.org/.
+
+\subsection{Motivation}
+
+The IEEEtran class file is used to format your paper and style the text. All margins, 
+column widths, line spaces, and text fonts are prescribed; please do not 
+alter them. You may note peculiarities. For example, the head margin
+measures proportionately more than is customary. This measurement 
+and others are deliberate, using specifications that anticipate your paper 
+as one part of the entire proceedings, and not as an independent document. 
+Please do not revise any of the current designations.
+
+\subsection{Contributions}
+
+The IEEEtran class file is used to format your paper and style the text. All margins, 
+column widths, line spaces, and text fonts are prescribed; please do not 
+alter them. You may note peculiarities. For example, the head margin
+measures proportionately more than is customary. This measurement 
+and others are deliberate, using specifications that anticipate your paper 
+as one part of the entire proceedings, and not as an independent document. 
+Please do not revise any of the current designations.
+
+\subsection{Organization}
+
+The IEEEtran class file is used to format your paper and style the text. All margins, 
+column widths, line spaces, and text fonts are prescribed; please do not 
+alter them. You may note peculiarities. For example, the head margin
+measures proportionately more than is customary. This measurement 
+and others are deliberate, using specifications that anticipate your paper 
+as one part of the entire proceedings, and not as an independent document. 
+Please do not revise any of the current designations.
+
+
+
+% ==========================================
+% II: PROBLEM FORMULATION AND CONTROL OBJECTIVES
+% ========================================== 
+\section{PROBLEM FORMULATION AND CONTROL OBJECTIVES}
+
+
+\subsection{Control Objectives}
+
+
+- end to end controller for path tracking
+
+- we expect 1D CNN operation to extract underlying 
+dynamics from stacked input(i.e. error derivatives, integrals, etc.) and provide informative features for steering control without  an explicit information.
+
+- we expect the controller adapts the vehicle parameters changes online(eg. tire characteristics,vehicle mass, etc.)
+
+- we expect controller adapt its parameters online to handle the changing dynamics and maintain good tracking performance across different path segments (e.g., straight vs. curved) and varying conditions (e.g., different speeds, road friction, etc.).
+
+
+
+%----------------------------------------------------------------%
+%--- III. CVL-CONAC ARCHITECTURE & OPTIMIZATION ----------------%
+%----------------------------------------------------------------%
+\section{System Details}
+
+\subsection{CVL-CONAC Architecture}
+The network $\estNN$ is designed as a hybrid architecture suitable for capturing spatio-temporal dynamics from historical data[??].
+
+\subsubsection{Convolutional Layers (CVLs)}
+The CVLs are represented recursively as:
+\begin{equation}\label{eq:cvl_output}
+  \PhiC 
+  = 
+  \begin{cases} 
+    O(\phiC(\Phi_{j_c-1}^{C}),
+    \Omega_{j_c},B_{j_c}), 
+    & 
+    j_c \in [1,\dots,k_c] \\ 
+    O(\phi_{0}^{C}(X),\Omega_{0},B_{0}), 
+    & 
+    j_c = 0 
+  \end{cases}
+  ,
+\end{equation}
+where $X \in \R^{n_0 \times m_0}$ denotes the network input matrix, $O:\R^{n_{j_c} \times m_{j_c}} \times \R^{p_{j_c} \times m_{j_c} \times q_{j_c}} \times \R^{q_{j_c}} \to \R^{n_{j_c+1} \times m_{j_c+1}}$ denotes the CNN operator (see Appendix A), and $\phiC:\R^{n_{j_c} \times m_{j_c}} \to \R^{n_{j_c} \times m_{j_c}}$ denotes the matrix activation function (i.e., $\phi^C(\Phi_{j_c-1}^{C})_{(i,j)} = \sigma_{j_c}(\Phi_{j_c-1}^{C})_{(i,j)}$) for some activation function $\sigma_{j_c}: \R \to \R$. 
+The first activation function $\phi_{0}^{C}$ should be a bounded nonlinear function to ensure that the input to the first CNN operator is bounded. 
+In this study, $\alpha_1 \tanh(\cdot)$ is selected with $\alpha_1 \in \R_{>0}$. 
+The filter set $\Omega_{j_c}$ contains $q_{j_c}$ filters $W_{j_c}^{(i)} \in \R^{p_{j_c} \times m_{j_c}}$, $\forall i \in [1,\dots,q_{j_c}]$, and is represented as $\Omega_{j_c} = \{W_{j_c}^{(1)},\dots,W_{j_c}^{(q_{j_c})}\}$, where superscript $i$ denotes the filter index. The bias vector $B_{j_c}$ consists of $q_{j_c}$ biases.
+
+The weights for the $j_c$-th CVL layer are collectively represented as
+$\tH_{Cj_c} \triangleq [\text{vec}(\Omega_{j_c})^T, B_{j_c}^T]^T$.
+
+\subsubsection{Fully-Connected Layers (FCLs)}
+The output matrix of the CVLs is input to the concatenate layer
+$C(\Phi_{k_c}^{C}) = [\text{vec}(\Phi_{k_c}^{C^{\top}})^{\top}, 1]^{\top}$
+before the input layer of FCLs for compatibility between the CVLs and FCLs.
+The FCLs are represented recursively as:
+\begin{equation} \label{eq:fcl_output}
+  \Phi_{j_f}^{F} 
+  = 
+  \begin{cases} 
+    V_{j_f}^{\top}\phiF(\Phi_{j_f-1}^{F}), & j_f \in [1,\dots,k_f] 
+    \\ 
+    V_{0}^{\top}C(\Phi_{k_c}^{C}), 
+    & 
+    j_f = 0 
+  \end{cases}
+  ,
+\end{equation}
+where 
+$V_{j_f} \in \R^{l_{j_f}+1 \times l_{j_f+1}}$ denotes the weight matrix, 
+$\phiF: \R^{l_{j_f}} \to \R^{l_{j_f}+1}$ denotes the vector activation function defined by $\phiF(\Phi_{j_f-1}^{F}) \triangleq [\sigma_{j_f}(\Phi_{j_f-1}^{F})^\top, 1]^\top$ for $j_f \in [1,\dots,k_f-1]$, for some nonlinear activation functions $\sigma_{j_f}: \R \to \R$ such as $\tanh(\cdot)$. 
+Note that $C(\Phi_{k_c}^{C})$ and $\Phi_{j_f}^{F}$ are augmented by $1$ to consider the bias of the preceding input layer as a weight in the weight matrix. The output of the FCLs is the final output of the CNN architecture and is represented as $\matPhi \equiv \Phi_{k_f}^{F}$.
+
+The FCL weights for the $j_f$-th layer are $\tH_{Fj_f} \triangleq \text{vec}(V_{j_f})$.
+
+%----------------------------------------------------------------%
+%--- IV. ADAPTATION LAWS ----------------------------------------%
+%----------------------------------------------------------------%
+\section{Adaptation Laws}
+\subsection{Optimization Problem}
+
+%----------------------------------------------------------------%
+%--- V. STABILITY ANALYSIS -------------------------------------%
+%----------------------------------------------------------------%
+\section{Stability Analysis}
+
+
+
+% ============================================
+%    VI: NUMERICAL VALIDATION
+% ============================================
+\section{Numerical Validation}
+
+\subsection{Validation Setup}
+
+To validate the proposed controller, a numerical simulation is conducted using a nonlinear vehicle model with four-wheel steering and actuator lag.
+The following 2-DOF vehicle lateral dynamics \cite{Rajamani:2011aa} are considered:
+\begin{equation} \label{eq:sys:lat:dyn}
+  \begin{cases}
+    \ddtt v_y
+    =
+    \tfrac{1}{m} 
+    \left(
+    \Ff + \Fr
+    \right)
+    -
+    v_x r
+    ,
+    % mv_x (\ddtt \beta+r)
+    % =
+    % \Ff + \Fr
+    % ,
+    \\
+    \ddtt r
+    =
+    \tfrac{1}{I_z}
+    \left(
+      \Ff\lf-\Fr\lr
+    \right)
+    ,
+  \end{cases}
+\end{equation}
+where $v_x$ is the longitudinal velocity, $v_y$ is the lateral velocity, and $r=\ddtt\psi$ is the yaw rate, $m$ is the vehicle mass and $I_z$ is the yaw moment of inertia, $\lr$ and $\lr$ are the distances from the center of gravity to the front and rear axles, respectively, and $\Ff$ and $\Fr$ are the front and rear lateral tire forces, respectively, and modelled as:
+\begin{equation} \label{eq:sys:lat:dyn:tire}
+    F_{i}
+    = 
+    F_{\max,i}
+    \tanh
+    \left(
+      \tfrac{C_i}{F_{\max,i}}\alpha_i
+    \right)
+    , 
+    \quad
+    \forall i \in \{f,r\}
+    ,
+\end{equation}
+where $C_i$, $F_{\max,i}$, and $\alpha_i$ are the cornering stiffness, saturation limit, and slip angle of the front ($i=f$) and rear ($i=r$) tires, respectively.
+The slip angles are given by
+\begin{equation}
+    \alpf
+    = 
+    \delf
+    - 
+    \tfrac{v_y+\lf r}{v_x}
+    , 
+    \quad
+    \alpr 
+    = 
+    \delr - 
+    \tfrac{v_y-\lr r}{v_x}
+    ,
+\end{equation}
+where $\delf$ and $\delr$ are the effective front and rear steering angles respectively. 
+In order to capture the lag between the steering commands and the actual steering angles, the actuator dynamics are modeled as:
+% \begin{equation} \label{eq:sys:actuator:lag}
+$
+    \ddtt \delta_i
+    = \tfrac{\omega_i-\delta_i}{\tau}
+    , 
+    \quad
+    \forall i \in \{f,r\}
+    ,
+% \end{equation}
+$
+where $\omega_i,\ \forall i\in\{f,r\}$ denotes the front and rear steering commands, respectively, and $\tau>0$ is the actuator time constant.
+
+\hfill
+
+The global position kinematics are given by \eqref{eq:sys:global:kinematics}:
+\begin{equation} \label{eq:sys:global:kinematics}
+    \dot{X}_a 
+    = 
+    v_x \cos\psi
+    - 
+    v_y \sin\psi, \qquad
+    \dot{Y}_a 
+    = 
+    v_x \sin\psi 
+    + 
+    v_y \cos\psi
+    ,
+\end{equation}
+where $(X_a,Y_a)$ denotes the vehicle position in the global frame, and $\psi$ denotes the yaw angle. The yaw rate $\dot{\psi}$ is obtained by integrating the yaw acceleration $\ddot{\psi}$ in \eqref{eq:sys:lat:dyn}.
+
+
+In this section, the proposed controller is validated through numerical simulation using the nonlinear 4WS vehicle model described in Section II. The desired trajectory is selected as a closed stadium-shaped path composed of two straight segments and two semicircular arcs. Let $L$ and $R$ denote the straight length and turning radius, respectively. Then, the lower and upper straight segments are defined by
+\begin{equation} \label{eq:stadium_path:upper}
+    \mathcal{P}_1 
+    = 
+    \{(x,y)\,|\,0 \le x \le L,\ y=0\},
+\end{equation}
+\begin{equation} \label{eq:stadium_path:lower}
+    \mathcal{P}_2
+    = 
+    \{(x,y)\,|\,0 \le x \le L,\ y=2R\}
+    ,
+\end{equation}
+The left and right turning sections are semicircles centered at
+$C_{\mathrm{L}}=(0,R)$ and $C_{\mathrm{R}}=(L,R)$, respectively. 
+This path contains both zero-curvature and constant-curvature segments 
+and is therefore suitable for evaluating straight-line regulation and turning performance within a single experiment. Figure~\ref{fig:stadium-geometry} illustrates the stadium path together with the vehicle pose, body-fixed frame, and tracking error used in the validation setup.
+
+\begin{figure}[!t]
+    \centering
+    \resizebox{\columnwidth}{!}{%
+      \IfFileExists{figures/stadium_vehicle_geometry.tikz}{%
+      \input{figures/stadium_vehicle_geometry.tikz}%
+      }{%
+      \input{tex/IEEE/figures/stadium_vehicle_geometry.tikz}%
+      }%
+    }
+    \caption{Stadium-track geometry and vehicle pose used in the validation setup.}
+    \label{fig:stadium-geometry}
+\end{figure}
+
+To generate the path-following reference at each simulation step, the current vehicle position $(X_a,Y_a)$ is projected onto the corresponding path segment. For straight segments, the desired heading is:
+\begin{equation}
+    \psi_{\mathrm{des}}
+    =
+    \begin{cases}
+      0, & \text{lower straight},\\
+      \pi, & \text{upper straight}
+      ,
+    \end{cases}
+\end{equation}
+For the arc segments, the projected point is computed by
+\begin{equation}
+  X^{\star} 
+  = 
+  x_c + R\cos\theta, \qquad
+  Y^{\star} 
+  = 
+  y_c + R\sin\theta
+  ,
+\end{equation}
+with
+\begin{equation}
+  \theta 
+  = 
+  \mathrm{atan2}(Y_a-y_c, X_a-x_c)
+  ,
+\end{equation}
+The desired heading is then taken as the tangent direction of the arc,
+\begin{equation}
+  \psi_{\mathrm{des}} 
+  = 
+  \theta + \frac{\pi}{2}
+  ,
+\end{equation}
+The tracking errors are then defined by the lateral displacement from the projected point and the heading error.
+
+\subsection{Validation Results}
+The validation results are presented in terms of tracking errors, steering commands, and the global vehicle trajectory. In particular, the lateral and heading errors are used to assess whether the proposed 1D CNN--MLP controller can regulate the vehicle toward the desired path while adapting its parameters online. The front and rear steering-rate commands illustrate the control effort generated by the end-to-end policy, and the global $XY$ trajectory provides a direct geometric comparison between the desired path and the actual motion.
+
+In the final manuscript, this subsection should be organized around the simulation plots produced by the current MATLAB implementation. A compact presentation consistent with the reference paper would first discuss the validation conditions, then summarize the tracking behavior in the time domain, and finally comment on the overall path-following accuracy and adaptation behavior. Root-mean-square tracking errors and selected controller settings can also be reported in a table to make the comparison more concise.
+
+
+\section{Conclusion}
+
+% -------------------------------------
+% Appendix
+% -------------------------------------
+% \appendix
+
+% ------------------------------------
+% Bibliography
+% ------------------------------------
+\bibliographystyle{IEEEtran}
+% \bibliography{\template/refs}
+\bibliography{localRefs}
+
+% ------------------------------------
+% Biography
+% ------------------------------------
+% \vspace{-10mm}
+\begin{IEEEbiography}[{
+  \includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{\template/people/msRyu.jpg}}]{Myeongseok Ryu}
+  received the B.S. degree in Mechanical Engineering from Incheon National University, South Korea, in 2023, and the M.S. degree in Mechanical Engineering from GIST, South Korea, in 2025. 
+  He is currently pursuing the Ph.D. degree in the Cho Chun Shik Graduate School of Mobility at Korea Advanced Institute of Science and Technology (KAIST), South Korea.
+  His research interests include neuro-adaptive control, online optimization, and contraction theory.
+  % \vspace{-10mm}
+\end{IEEEbiography}
+
+\begin{IEEEbiography}[{
+  \includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{\template/people/nsErega.jpg}}]{Naol Samuel Erega}
+  \MSRY{Should be reviewed}
+  received his B.S. degree in Physics and Engineering Physics from Yonsei University, Wonju, South Korea, in 2023. He is currently pursuing the M.S. degree in Mechanical Engineering from GIST, Gwangju, South Korea.  
+His research interests include robot control, neural-networks, and model identification. 
+  % \vspace{-10mm}
+\end{IEEEbiography}
+
+\begin{IEEEbiography}[{
+  \includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{\template/people/khChoi.jpg}}]{Kyunghwan Choi}
+  received his B.S., M.S., and Ph.D. degrees in Mechanical Engineering from KAIST, Daejeon, South Korea, in 2014, 2016, and 2020, respectively. Following his Ph.D., he worked at the Center for Eco-Friendly \& Smart Vehicles at KAIST as a Postdoctoral Fellow and later as a Research Assistant Professor. In 2022, he joined GIST as an Assistant Professor in the Department of Mechanical and Robotics Engineering. Currently, he serves as an Assistant Professor at the Cho Chun Shik Graduate School of Mobility at KAIST, where he is also the Director of the Mobility Intelligence and Control Laboratory. His research focuses on optimal and learning-based control for connected, automated, and electrified vehicles (CAEVs).
+\end{IEEEbiography}
+
+\end{document}

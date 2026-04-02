@@ -75,14 +75,16 @@
   % Straight length marker
   \draw[dim] (0,\Ro+0.25) -- node[fill=white, inner sep=1pt] {$L$} (\L,\Ro+0.25);
 
-  % Arc sweep angle markers drawn at the arc centers
+  % Arc angle markers measured from the global +X direction to match atan2(y-y_c, x-x_c)
   \draw[helper] (CL) -- ($(CL)+(90:\R)$);
-  \draw[state, draw=black, ->] ($(CL)+(90:0.72)$) arc[start angle=90,end angle=180-\phia,radius=0.72];
-  \node[text=black!70!black] at ($(CL)+(110:1.0)$) {$\theta$};
+  \draw[helper] (CL) -- ($(CL)+(\R,0)$);
+  \draw[state, draw=black, ->] ($(CL)+(0:0.72)$) arc[start angle=0,end angle=180-\phia,radius=0.72];
+  \node[text=black!70!black] at ($(CL)+(80:1.0)$) {$\theta$};
 
   \draw[helper] (CR) -- ($(CR)-(90:\R)$);
-  \draw[state, draw=black, ->] ($(CR)-(90:0.72)$) arc[start angle=-90,end angle=-\phia,radius=0.72];
-  \node[text=black!70!black] at ($(CR)-(110:1.0)$) {$\theta$};
+  \draw[helper] (CR) -- ($(CR)+(\R,0)$);
+  \draw[state, draw=black, ->] ($(CR)+(0:0.72)$) arc[start angle=0,end angle=-\phia,radius=0.72];
+  \node[text=black!70!black] at ($(CR)+(-10:1)$) {$\theta$};
   \coordinate (ProjArc) at ($(CR)+(-35:\R)$);
   \fill[blue!60!black] (ProjArc) circle (0.9pt);
   \node[below left =0.01] at (ProjArc) {$(X^\star,Y^\star)$};

@@ -105,48 +105,44 @@ In this study, the following notation is used:
 % ==========================================
 % I: Introduction
 % ==========================================
+\section{Introduction}
 
-\section{INTRODUCTION}
-This document is a model and instructions for \LaTeX.
-Please observe the conference page limits. For more information about how to become an IEEE Conference author or how to write your paper, please visit   IEEE Conference Author Center website: https://conferences.ieeeauthorcenter.ieee.org/.
+%The empirical performances of NNs have been shown in many applications, due to their universal approximation property \cite{UnivDNN}. 
+Neural networks (NNs) have been widely used in control applications as a function approximator for adaptive control \cite{BookEKcontrol}, state estimation \cite{BoockEKestimation}, and so on. 
+%\cite{ctassRef}
+These studies provided the ultimate boundedness of tracking or estimation errors based on the Lyapunov-based stability analysis but were limited to investigating shallow NNs with one hidden layer.
+\NSER{You can leave your comment like this}
 
-\subsection{Motivation}
+Deep neural networks (DNNs) with multiple hidden layers are more expressive and can provide better performance than shallow NNs. However, due to the difficulty in deriving an adaptation law ensuring stability, designing a stable DNN-based controller is generally considered challenging. There have been a few attempts at overcoming this challenge, including developing Lyapunov-based adaptation laws for controllers based on DNNs or their variations \cite{DixonDNN, DixonLSTM, DixonPINN}. A Lyapunov-based adaptation law for a DNN-based controller was derived in \cite{DixonDNN}, which ensured asymptotic convergence of tracking error. \cite{DixonLSTM} utilized long short-term memory (LSTM), a type of DNN, in designing an adaptive controller and presented the ultimate boundedness of tracking error based on Lyapunov analysis.
+%due to its capability to retain important previous information, which a typical DNN does not have.
+The Lyapunov-based approach was extended to using physics-informed LSTM for an adaptive controller and therein demonstrated its asymptotic stability \cite{DixonPINN}.
+%These works reveal that the controller based on the variations of DNN can ensure the stability of convergence in the sense of Lyapunov.
 
-The IEEEtran class file is used to format your paper and style the text. All margins, 
-column widths, line spaces, and text fonts are prescribed; please do not 
-alter them. You may note peculiarities. For example, the head margin
-measures proportionately more than is customary. This measurement 
-and others are deliberate, using specifications that anticipate your paper 
-as one part of the entire proceedings, and not as an independent document. 
-Please do not revise any of the current designations.
+While DNN-based adaptive control with a stability guarantee has been studied by pioneering works \cite{DixonDNN, DixonLSTM, DixonPINN}, convolutional neural networks (CNNs), which are well known for their spatial feature capturing ability, have not been as actively investigated in control applications, as they have been in computer vision applications.
+Nonetheless, motivated by the feature-capturing capability, the use of CNNs as a basis for end-to-end controllers has been studied \cite{CNNimg2strOutErr, CNNimg2strAngErr, CNNmat2mat, CNNsensorSystemCompare}. These end-to-end controllers determine the control input directly from the sensor data with features that are extracted by CNNs. In \cite{CNNimg2strOutErr, CNNimg2strAngErr}, CNN-based end-to-end controllers were trained offline to produce the desired steering behavior based on 2D images from the camera. \cite{CNNmat2mat, CNNsensorSystemCompare} generated pseudo-2D images by stacking historical system input or output data and used them to train CNN-based end-to-end controllers offline to behave as target controllers.
+%Unlike general CNNs, 1D-CNNs have been developed in various fields due to their major advantages such as better capabilities to capture time serial data, and lower computational cost for train and real-time implementation \cite{1DcnnRevire}. 
+However, none of the works above considered online adaptation or stability analysis of CNN-based end-to-end controllers. 
 
-\subsection{Contributions}
-
-The IEEEtran class file is used to format your paper and style the text. All margins, 
-column widths, line spaces, and text fonts are prescribed; please do not 
-alter them. You may note peculiarities. For example, the head margin
-measures proportionately more than is customary. This measurement 
-and others are deliberate, using specifications that anticipate your paper 
-as one part of the entire proceedings, and not as an independent document. 
-Please do not revise any of the current designations.
-
-\subsection{Organization}
-
-The IEEEtran class file is used to format your paper and style the text. All margins, 
-column widths, line spaces, and text fonts are prescribed; please do not 
-alter them. You may note peculiarities. For example, the head margin
-measures proportionately more than is customary. This measurement 
-and others are deliberate, using specifications that anticipate your paper 
-as one part of the entire proceedings, and not as an independent document. 
-Please do not revise any of the current designations.
-
-
+This study presents a CNN-based adaptive controller with a stability guarantee.
+%Considering the computational cost, and performance in multivariate time serial data, the filter windows only move 1-dimensionally along time axis like 1D-CNNs.
+The proposed controller uses 2D images generated by stacking historical sensory data as an input matrix to convolutional layers (CVLs). The output of CVLs is input to the following fully connected layers (FCLs), which produce the controller output. An adaptation law of network weights is implemented to learn the desired control policy and is derived using the gradient descent optimization method. 
+%\color{red}
+The stability of the adaptation laws is proven based on the Lyapunov analysis by showing that the tracking error is asymptotically convergent and the network weights and biases are bounded. 
+%\color{black}
+A part of the proposed controller is designed based on these findings, such as Jacobians with respect to FCLs from \cite{DixonDNN} and stabilizing techniques for the adaptation law from \cite{BoockEKestimation, BookEKcontrol}; however, the remainder of the proposed controller, particularly the components rely on the mathematical formulation and adaptation law of the overall CNN architecture, has been solely developed by the present authors.
+%the stable Hurwitz designer matrix and e-modification term are employed in the adaptation law. 
+%By adjusting the factors in the adaptation law, the stability and robustness of the adaptation system can be improved.
+%Furthermore, The controller ensures asymptotic tracking error convergence in the sense of Lyapunov and does not require pre-train.
+A simulation study using a control-affine nonlinear system is performed to demonstrate that the proposed CNN-based controller ensures asymptotic convergence of tracking errors during online adaptation without using a pre-trained network. 
+In addition, the tracking performance of the proposed controller is compared with that of the DNN-based adaptive controller, which is a form in which the CVLs are not included in the proposed controller.
+%\color{black}
 
 % ==========================================
 % II: PROBLEM FORMULATION AND CONTROL OBJECTIVES
 % ========================================== 
-\section{PROBLEM FORMULATION AND CONTROL OBJECTIVES}
+\section{Problem Formulation and Control Objectives}
 
+\subsection{Problem Formulation}
 
 \subsection{Control Objectives}
 
@@ -317,7 +313,9 @@ The global position kinematics are given by \eqref{eq:sys:global:kinematics}:
     = 
     v_x \cos\psi
     - 
-    v_y \sin\psi, \qquad
+    v_y \sin\psi
+    , 
+    \quad
     \dot{Y}_a 
     = 
     v_x \sin\psi 
@@ -412,7 +410,7 @@ In the final manuscript, this subsection should be organized around the simulati
 % ------------------------------------
 \bibliographystyle{IEEEtran}
 % \bibliography{\template/refs}
-\bibliography{localRefs}
+\bibliography{localRefs, Old_files/refs}
 
 % ------------------------------------
 % Biography

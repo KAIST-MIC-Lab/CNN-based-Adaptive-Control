@@ -298,7 +298,7 @@ $
     ,
 % \end{equation}
 $
-where $\omega_i,\ \forall i\in\{f,r\}$ denotes the front and rear steering commands, respectively, and $\tau>0$ is the actuator time constant.
+where $\omega_i,\ \forall i\in\{f,r\}$ denotes the front and rear steering commands, respectively, and $\tau>0$ is the actuator time constant. The control input is then defined as $u \triangleq [\omega_f, \omega_r]^\top$.
 
 \hfill
 
@@ -321,7 +321,7 @@ The global position kinematics are given by \eqref{eq:sys:global:kinematics}:
 where $(X_a,Y_a)$ denotes the vehicle position in the global frame, and $\psi$ denotes the yaw angle. The yaw rate $\dot{\psi}$ is obtained by integrating the yaw acceleration $\ddot{\psi}$ in \eqref{eq:sys:lat:dyn}.
 
 \subsection{Control Objectives}
-An end to end controller to is designed to drive errors defined by \eqref{eq:sys:error} to zero:
+An end to end controller(i.e. $u=\estNN$ ) is designed to drive errors defined by \eqref{eq:sys:error} to zero:
 \begin{equation} \label{eq:sys:error}
     e 
     = 
@@ -398,16 +398,16 @@ where $\lambda_i, \lambda_{\estNN} \ge 0$ are the Lagrange multipliers.
 \subsection{Primal Update}
 The weight update for each block $\tH_i$ is proportional to the
 negative gradient of the Lagrangian: $\dot{\tH}_i = -\alpha \nabla_{\tH_i} \matL$.
-\subsubsection{Objective Gradient} The objective gradient is approximated using the chain rule and the sensitivity approximation $\frac{\partial x}{\partial u} \approx \mathbf{I_n}$:
+\subsubsection{Objective Gradient} The objective gradient is approximated using the chain rule and the sensitivity approximation $\tfrac{\partial e}{\partial u} = \tfrac{\partial e}{\partial \estNN} \approx \mathbf{I_n}$:
 \begin{equation} \label{eq:adapt:obj_grad}
   \nabla_{\tH_i} 
   \matJ 
   = 
   \left(\tfrac{\partial e}{\partial \tH_i}\right)^T e 
   \approx 
-  \left(\tfrac{\partial x}{\partial u}\tfrac{\partial u}{\partial \tH_i}\right)^T e 
+  \left(\tfrac{\partial e}{\partial \estNN}\tfrac{\partial \estNN}{\partial \tH_i}\right)^T e 
   =
-  - \left(\tfrac{\partial \estNN}{\partial \tH_i}\right)^T e
+  \left(\tfrac{\partial \estNN}{\partial \tH_i}\right)^T e
   ,
 \end{equation}
 
@@ -431,16 +431,24 @@ The gradients of the constraints are given by:
     ,
   \end{cases}
 \end{equation}
-The resulting weight update rule for the primal variables is:
+The resulting gradient descent weight update rule for the primal variables is:
 \begin{equation} \label{eq:adapt:primal_update}
   \dot{\tH}_i 
   = 
-  \alpha \,
+  -\alpha \,
   \left[ 
-  \left(\tfrac{\partial \estNN}{\partial \tH_i}\right)^T e 
-  - 
-  \lambda_i \tH_i 
-  - \lambda_{\estNN} \left(\tfrac{\partial \estNN}{\partial \tH_i}\right)^T \estNN 
+    \left(
+      \tfrac{\partial \estNN}{\partial \tH_i}
+    \right)^T e 
+    + 
+    \lambda_i
+    \tH_i 
+    + 
+    \lambda_{\estNN}
+    \left(
+      \tfrac{\partial \estNN}{\partial \tH_i}
+    \right)^T 
+    \estNN 
   \right]
   ,
 \end{equation}
@@ -453,7 +461,8 @@ The Lagrange multipliers are updated using projected gradient ascent:
     \dot{\lambda}_j 
     = 
     \beta_j c_j(\tH) 
-    ,   \quad
+    ,   
+    \quad
     & 
     \forall j \in \matI \cup \{\estNN\}
     \\

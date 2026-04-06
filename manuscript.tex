@@ -20,7 +20,7 @@
 \newcommand{\PhiC}{\Phi_{j_c}^{C}}
 \newcommand{\phiC}{\phi_{j_c}^{C}}
 \newcommand{\phiF}{\phi_{j_f}^{F}}
-\newcommand{\tH}{\tilde{H}}
+\newcommand{\tH}{\hat{\theta}}
 
 \newcommand*{\Ff}{F_f}
 \newcommand*{\Fr}{F_r}
@@ -32,6 +32,14 @@
 \newcommand*{\alpr}{\alpha_r}
 \newcommand*{\Cf}{C_f}
 \newcommand*{\Cr}{C_r}
+
+\newcommand{\PhiStar}{\Phi^*}
+\newcommand{\sat}{\mysat} 
+\newcommand{\matJ}{\mathcal{J}}
+\newcommand{\matL}{\mathcal{L}}
+
+\newcommand{\tHF} {\hat{\theta}_{Fj_{kf}}}
+\newcommand{\matI}{\mathcal{I}}
 % ==========================================
 
 \newcommand*{\figSizeTwoCol}{.49}
@@ -79,6 +87,13 @@
   Neuro-adaptive control, convolutional neural network (CNN), ...
 \end{IEEEkeywords}
 
+
+% To do list: 
+  % Finish untill the stability analysis section: Due next week Monday
+  % Review CNN and NN network based controller for path tracking problems
+
+
+
 % ==========================================    
 % NOTATION
 % ==========================================
@@ -107,16 +122,16 @@ In this study, the following notation is used:
 % ==========================================
 \section{Introduction}
 
+\subsection{Motivation}
 %The empirical performances of NNs have been shown in many applications, due to their universal approximation property \cite{UnivDNN}. 
 Neural networks (NNs) have been widely used in control applications as a function approximator for adaptive control \cite{BookEKcontrol}, state estimation \cite{BoockEKestimation}, and so on. 
 %\cite{ctassRef}
-These studies provided the ultimate boundedness of tracking or estimation errors based on the Lyapunov-based stability analysis but were limited to investigating shallow NNs with one hidden layer.
-\NSER{You can leave your comment like this}
+These studies provided the ultimate boundedness of tracking or estimation errors based on the Lyapunov-based stability analysis but were limited to
 
 Deep neural networks (DNNs) with multiple hidden layers are more expressive and can provide better performance than shallow NNs. However, due to the difficulty in deriving an adaptation law ensuring stability, designing a stable DNN-based controller is generally considered challenging. There have been a few attempts at overcoming this challenge, including developing Lyapunov-based adaptation laws for controllers based on DNNs or their variations \cite{DixonDNN, DixonLSTM, DixonPINN}. A Lyapunov-based adaptation law for a DNN-based controller was derived in \cite{DixonDNN}, which ensured asymptotic convergence of tracking error. \cite{DixonLSTM} utilized long short-term memory (LSTM), a type of DNN, in designing an adaptive controller and presented the ultimate boundedness of tracking error based on Lyapunov analysis.
 %due to its capability to retain important previous information, which a typical DNN does not have.
 The Lyapunov-based approach was extended to using physics-informed LSTM for an adaptive controller and therein demonstrated its asymptotic stability \cite{DixonPINN}.
-%These works reveal that the controller based on the variations of DNN can ensure the stability of convergence in the sense of Lyapunov.
+%These works reveal that the controller based on the variations of DNN can ensure the stability of convergen
 
 While DNN-based adaptive control with a stability guarantee has been studied by pioneering works \cite{DixonDNN, DixonLSTM, DixonPINN}, convolutional neural networks (CNNs), which are well known for their spatial feature capturing ability, have not been as actively investigated in control applications, as they have been in computer vision applications.
 Nonetheless, motivated by the feature-capturing capability, the use of CNNs as a basis for end-to-end controllers has been studied \cite{CNNimg2strOutErr, CNNimg2strAngErr, CNNmat2mat, CNNsensorSystemCompare}. These end-to-end controllers determine the control input directly from the sensor data with features that are extracted by CNNs. In \cite{CNNimg2strOutErr, CNNimg2strAngErr}, CNN-based end-to-end controllers were trained offline to produce the desired steering behavior based on 2D images from the camera. \cite{CNNmat2mat, CNNsensorSystemCompare} generated pseudo-2D images by stacking historical system input or output data and used them to train CNN-based end-to-end controllers offline to behave as target controllers.
@@ -137,32 +152,24 @@ A simulation study using a control-affine nonlinear system is performed to demon
 In addition, the tracking performance of the proposed controller is compared with that of the DNN-based adaptive controller, which is a form in which the CVLs are not included in the proposed controller.
 %\color{black}
 
-% ==========================================
-% II: PROBLEM FORMULATION AND CONTROL OBJECTIVES
-% ========================================== 
-\section{Problem Formulation and Control Objectives}
+\subsection{Contributions}
 
-\subsection{Problem Formulation}
-
-\subsection{Control Objectives}
-
-
-- end to end controller for path tracking
-
-- we expect 1D CNN operation to extract underlying 
-dynamics from stacked input(i.e. error derivatives, integrals, etc.) and provide informative features for steering control without  an explicit information.
-
-- we expect the controller adapts the vehicle parameters changes online(eg. tire characteristics,vehicle mass, etc.)
-
-- we expect controller adapt its parameters online to handle the changing dynamics and maintain good tracking performance across different path segments (e.g., straight vs. curved) and varying conditions (e.g., different speeds, road friction, etc.).
-
+\subsection{Organization}
+The remainder of this paper is organized as follows. Section II describes the system details of the proposed CVL-CONAC architecture. Section III presents the problem formulation and control objectives. Section IV develops the adaptation laws. Section V provides the stability analysis. Section VI presents the numerical validation results. Finally, Section VII concludes the paper.
 
 
 %----------------------------------------------------------------%
 %--- III. CVL-CONAC ARCHITECTURE & OPTIMIZATION ----------------%
 %----------------------------------------------------------------%
 \section{System Details}
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/CVLCONACArch.png}
+  \caption{System Architecture.}
+  \label{fig:CVL-CONAC-arch}
+\end{figure}
 
+The proposed controller architecture is shown in Fig.~\ref{fig:CVL-CONAC-arch}. The network $\estNN$ consists of CVLs and FCLs, which are detailed in the following subsections.
 \subsection{CVL-CONAC Architecture}
 The network $\estNN$ is designed as a hybrid architecture suitable for capturing spatio-temporal dynamics from historical data[??].
 
@@ -210,32 +217,18 @@ The FCLs are represented recursively as:
 where 
 $V_{j_f} \in \R^{l_{j_f}+1 \times l_{j_f+1}}$ denotes the weight matrix, 
 $\phiF: \R^{l_{j_f}} \to \R^{l_{j_f}+1}$ denotes the vector activation function defined by $\phiF(\Phi_{j_f-1}^{F}) \triangleq [\sigma_{j_f}(\Phi_{j_f-1}^{F})^\top, 1]^\top$ for $j_f \in [1,\dots,k_f-1]$, for some nonlinear activation functions $\sigma_{j_f}: \R \to \R$ such as $\tanh(\cdot)$. 
-Note that $C(\Phi_{k_c}^{C})$ and $\Phi_{j_f}^{F}$ are augmented by $1$ to consider the bias of the preceding input layer as a weight in the weight matrix. The output of the FCLs is the final output of the CNN architecture and is represented as $\matPhi \equiv \Phi_{k_f}^{F}$.
+Note that $C(\Phi_{k_c}^{C})$ and $\Phi_{j_f}^{F}$ are augmented by $1$ to consider the bias of the preceding input layer as a weight in the weight matrix. The output of the FCLs is the final output and is represented as $\estNN \triangleq \Phi_{k_f}^{F}$.
 
 The FCL weights for the $j_f$-th layer are $\tH_{Fj_f} \triangleq \text{vec}(V_{j_f})$.
 
-%----------------------------------------------------------------%
-%--- IV. ADAPTATION LAWS ----------------------------------------%
-%----------------------------------------------------------------%
-\section{Adaptation Laws}
-\subsection{Optimization Problem}
 
-%----------------------------------------------------------------%
-%--- V. STABILITY ANALYSIS -------------------------------------%
-%----------------------------------------------------------------%
-\section{Stability Analysis}
+% ==========================================
+% II: PROBLEM FORMULATION AND CONTROL OBJECTIVES
+% ========================================== 
+\section{Problem Formulation and Control Objectives}
 
-
-
-% ============================================
-%    VI: NUMERICAL VALIDATION
-% ============================================
-\section{Numerical Validation}
-
-\subsection{Validation Setup}
-
-To validate the proposed controller, a numerical simulation is conducted using a nonlinear vehicle model with four-wheel steering and actuator lag.
-The following 2-DOF vehicle lateral dynamics \cite{Rajamani:2011aa} are considered:
+\subsection{System Dynamics}
+The following four wheel steered(4WS) 2-DOF vehicle lateral dynamics \cite{Rajamani:2011aa} are considered:
 \begin{equation} \label{eq:sys:lat:dyn}
   \begin{cases}
     \ddtt v_y
@@ -325,8 +318,234 @@ The global position kinematics are given by \eqref{eq:sys:global:kinematics}:
 \end{equation}
 where $(X_a,Y_a)$ denotes the vehicle position in the global frame, and $\psi$ denotes the yaw angle. The yaw rate $\dot{\psi}$ is obtained by integrating the yaw acceleration $\ddot{\psi}$ in \eqref{eq:sys:lat:dyn}.
 
+\subsection{Control Objectives}
+An end to end controller to is designed to drive errors defined by \eqref{eq:sys:error} to zero:
+\begin{equation} \label{eq:sys:error}
+    e 
+    = 
+    \begin{bmatrix}
+      e_y \\
+      e_\psi
+    \end{bmatrix}
+    =
+    \begin{bmatrix} %  y-\y_{\mathrm{des}} \\
+      y - y_{\mathrm{des}} \\
+      \psi - \psi_{\mathrm{des}}
+    \end{bmatrix}
+    , 
+\end{equation}
 
-In this section, the proposed controller is validated through numerical simulation using the nonlinear 4WS vehicle model described in Section II. The desired trajectory is selected as a closed stadium-shaped path composed of two straight segments and two semicircular arcs. Let $L$ and $R$ denote the straight length and turning radius, respectively. Then, the lower and upper straight segments are defined by
+which is obtained by solving optimization problem in \eqref{eq:sys:opt_problem}:
+\begin{equation} \label{eq:sys:opt_problem}
+  \begin{aligned}
+    \min_{\tH} \quad 
+    & 
+    \matJ(e, \tH) 
+    = 
+    \tfrac{1}{2}e^{\top}e \\
+    \text{s.t.} \quad 
+    & 
+    c_i(\tH) 
+    = 
+    \tfrac{1}{2} \left( \|\tH_i\|^2 
+    - 
+    \bar{\theta}_i^2 \right) \le 0, 
+    \quad 
+    \forall i \in \matI \\
+    & 
+    c_{\estNN}(\tH) 
+    = 
+    \tfrac{1}{2} \left( \|\estNN\|^2 
+    - 
+    \bar{u}^2 \right) \le 0
+    ,
+  \end{aligned}
+\end{equation}
+where $
+  \matI 
+  = 
+  \{C0, C1, \dots, Ck_c\} 
+  \cup 
+  \{F0, F1, \dots, Fk_f\}
+  $, $c_i$ are the weight norm constraints (i.e. ensuring boundedness) and
+$c_{\estNN}$ is the output norm constraint (i.e. ensuring input saturation limits
+$\bar{u}$).
+
+
+%----------------------------------------------------------------%
+%--- IV. ADAPTATION LAWS ----------------------------------------%
+%----------------------------------------------------------------%
+\section{Adaptation Laws}
+Solving the optimization problem in \eqref{eq:sys:opt_problem} is equivalent to finding the saddle point of the Lagrangian function given in \eqref{eq:adapt:lagrangian}:
+\begin{equation}  \label{eq:adapt:lagrangian}
+  \matL(\tH, \boldsymbol{\lambda}) 
+  = 
+  \tfrac{1}{2}e^{\top}e 
+  + 
+  \sum_{i \in \matI} 
+  \lambda_i c_i(\tH) 
+  + 
+  \lambda_{\estNN} c_{\estNN}(\tH)
+  ,
+\end{equation}
+where $\lambda_i, \lambda_{\estNN} \ge 0$ are the Lagrange multipliers.
+
+\subsection{Primal Update}
+The weight update for each block $\tH_i$ is proportional to the
+negative gradient of the Lagrangian: $\dot{\tH}_i = -\alpha \nabla_{\tH_i} \matL$.
+\subsubsection{Objective Gradient} The objective gradient is approximated using the chain rule and the sensitivity approximation $\frac{\partial x}{\partial u} \approx \mathbf{I_n}$:
+\begin{equation} \label{eq:adapt:obj_grad}
+  \nabla_{\tH_i} 
+  \matJ 
+  = 
+  \left(\tfrac{\partial e}{\partial \tH_i}\right)^T e 
+  \approx 
+  \left(\tfrac{\partial x}{\partial u}\tfrac{\partial u}{\partial \tH_i}\right)^T e 
+  =
+  - \left(\tfrac{\partial \estNN}{\partial \tH_i}\right)^T e
+  ,
+\end{equation}
+
+\subsubsection{Constraint Gradients} 
+The gradients of the constraints are given by:
+\begin{equation} \label{eq:adapt:constraint_grads}
+\begin{cases}
+    \nabla_{\tH_i} c_i 
+    = 
+    \tH_i
+    , 
+    & 
+    \forall i \in \matI 
+    \\
+    \nabla_{\tH_i} c_{\estNN} 
+    = 
+    \left(\tfrac{\partial \estNN}{\partial \tH_i}\right)^T \estNN
+    , 
+    & 
+    \forall i \in \matI
+    ,
+  \end{cases}
+\end{equation}
+The resulting weight update rule for the primal variables is:
+\begin{equation} \label{eq:adapt:primal_update}
+  \dot{\tH}_i 
+  = 
+  \alpha \,
+  \left[ 
+  \left(\tfrac{\partial \estNN}{\partial \tH_i}\right)^T e 
+  - 
+  \lambda_i \tH_i 
+  - \lambda_{\estNN} \left(\tfrac{\partial \estNN}{\partial \tH_i}\right)^T \estNN 
+  \right]
+  ,
+\end{equation}
+where $\alpha \in \R_{>0}$ is the learning rate.
+
+\subsection{Dual Update}
+The Lagrange multipliers are updated using projected gradient ascent:
+\begin{equation} \label{eq:adapt:dual_update}
+  \begin{cases}
+    \dot{\lambda}_j 
+    = 
+    \beta_j c_j(\tH) 
+    ,   \quad
+    & 
+    \forall j \in \matI \cup \{\estNN\}
+    \\
+    \lambda_j 
+    &
+    = 
+    \max(\lambda_j,0)
+    ,
+  \end{cases}
+\end{equation}
+
+where $\beta_j \in \R_{>0}$ is the update rate for the corresponding multiplier.
+
+\subsection{Network Jacobians}
+The adaptation law in \eqref{eq:adapt:primal_update} requires weights 
+Jacobians and are given by:
+\subsubsection{FCL Jacobians}
+The Jacobians of $\estNN$ with respect to the weights of FCL are derived recursively as the follows:
+\begin{equation} \label{eq:adapt: fcl_jacobians}
+  \tfrac{\partial \estNN}{\partial \tH_{F j_f}} 
+  = 
+  \begin{cases}
+    (\prod_{l=1}^{k_f} V_{l}^{\top} \phi_{l}^{F'}) 
+    \,
+    (I_{l_0} \otimes C(\Phi_{k_c}^{C})), 
+    & 
+    j_f = 0 
+    \\
+    (\prod_{l=j_f+1}^{k_f} V_{l}^{\top} \phi_{l}^{F'}) 
+    \,
+    (I_{l_{j_f}} \otimes \Phi_{j_f-1}^{F^{\top}}), 
+    & 
+    j_f \in [1,\dot, k_f]
+    ,
+  \end{cases}
+\end{equation}
+
+where $\phi_{j_f}^{F'} \triangleq \frac{\partial \phi_{j_f}^{F}(x)}{\partial x}$
+is the Jacobian of the activation function with respect to some vector $x$.
+
+\subsubsection{CVL Jacobians}
+The Jacobians of $\estNN$ with respect to the weights of CVLs (filters
+$\Omega_{j_c}$ and biases $B_{j_c}$) are given as follows: 
+\begin{IEEEeqnarray}{l}
+  \tfrac{\partial \estNN_i}{\partial W_{j_c}^{l_k}} 
+  =
+  \sum_{l_i=1}^{n_{j_c+1}} 
+  \Big(
+    \tfrac{\partial \estNN_i}{\partial \PhiC(l_i,l_k)}
+    \operatorname{row}(l_b:l_e) (\phiC)
+  \Big)
+  , 
+  \\
+  \tfrac{\partial \estNN_i}{\partial B_{j_c}(l_k)} 
+  =
+  \sum_{l_i=1}^{n_{j_c+1}} 
+  \Big(
+    \tfrac{\partial \estNN_i}{\partial \PhiC(l_i,l_k)}
+    \cdot 1
+  \Big), 
+\end{IEEEeqnarray}
+with $l_b \triangleq l_i$, $l_e \triangleq l_i+p_{j_c}-1$,  $j_c \in [0, \dots, k_c],  l_k \in [1, \dots, q_{j_c}]$
+
+where $\Phi_i$ denote the $i$-th output of $\estNN$, $\PhiC \triangleq \phiC(\Phi_{j_c-1}^{C})$ for
+$j_c \in [1, \dots, k_c]$, $\Phi_{0}^{C} \triangleq \phi_{0}^{C}(X)$, and
+$\partial \estNN_i / \partial \PhiC$ denotes the backpropagated gradient
+of $\estNN_i$ with respect to $\PhiC$ (obtained using the back-propagation method, detailed in Appendix B).
+
+
+%----------------------------------------------------------------%
+%--- V. STABILITY ANALYSIS -------------------------------------%
+%----------------------------------------------------------------%
+\section{Stability Analysis}
+
+
+
+% ============================================
+%    VI: NUMERICAL VALIDATION
+% ============================================
+\section{Numerical Validation}
+
+\subsection{Validation Setup}
+
+In this section, the proposed controller is validated through numerical
+simulation of non-linear vehicle model in \eqref{eq:sys:lat:dyn}. The vehicle parameters are selected as $m = 1463~\mathrm{kg}$,
+$I_z = 1967.8~\mathrm{kg \cdot m^2}$, $\lf = 1.2~\mathrm{m}$, and
+$\lr = 1.6~\mathrm{m}$. The longitudinal velocity is fixed at
+$v_x = 110~\mathrm{km/h}$. The front and rear cornering stiffness values are
+allowed to vary within
+$C_i \in [78.4,\,145.6]~\mathrm{kN/rad}$ for $i \in \{f,r\}$, which
+corresponds to a $\pm 30\%$ variation about the nominal value
+$112~\mathrm{kN/rad}$.
+
+The desired trajectory is selected as a closed stadium-shaped path composed of
+two straight segments and two semicircular arcs. Let $L$ and $R$ denote the
+straight length and turning radius, respectively. Then, the lower and upper
+straight segments are defined by
 \begin{equation} \label{eq:stadium_path:upper}
     \mathcal{P}_1 
     = 
@@ -409,7 +628,6 @@ In the final manuscript, this subsection should be organized around the simulati
 % Bibliography
 % ------------------------------------
 \bibliographystyle{IEEEtran}
-% \bibliography{\template/refs}
 \bibliography{localRefs, Old_files/refs}
 
 % ------------------------------------
@@ -426,9 +644,10 @@ In the final manuscript, this subsection should be organized around the simulati
 
 \begin{IEEEbiography}[{
   \includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{\template/people/nsErega.jpg}}]{Naol Samuel Erega}
-  \MSRY{Should be reviewed}
-  received his B.S. degree in Physics and Engineering Physics from Yonsei University, Wonju, South Korea, in 2023. He is currently pursuing the M.S. degree in Mechanical Engineering from GIST, Gwangju, South Korea.  
-His research interests include robot control, neural-networks, and model identification. 
+  received his B.S. degree in Aerospace Engineering and Electrical Engineering 
+  from Korea Advanced Institute of Science and Technology (KAIST), Daejeon, South Korea, in 2026.  He is currently pursuing the M.S. degree at the Cho Chun Shik Graduate School of Mobility, KAIST. His research interests include neural network-based control, system estimations, and unmanned ground vehicle(UGV) dynamics.
+  
+  
   % \vspace{-10mm}
 \end{IEEEbiography}
 

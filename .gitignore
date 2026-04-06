@@ -50,4 +50,5 @@
 *.sav
 *-checkpoint.ipynb
 /doc
+/doc_recovered/
 .codex

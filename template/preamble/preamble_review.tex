@@ -1,0 +1,50 @@
+% ============================================
+%         PATH DEFINITION
+% ============================================
+\newcommand*{\MACRO}{\template/macros}
+\newcommand*{\SYMBOL}{\template/symbols}
+\newcommand*{\PACKAGE}{\template/packages}
+
+% ============================================
+%         PACKAGES LOAD
+% ============================================
+\usepackage{titletoc}
+\usepackage{geometry}
+\geometry{
+    a4paper,
+    total={170mm,257mm},
+    left=20mm,
+    top=20mm,
+}
+\usepackage{appendix}
+\input{\PACKAGE/packages_review.tex}
+
+% ============================================
+%         MACROS Packages
+% ============================================
+\input{\MACRO/macros_general.tex}
+\input{\MACRO/macros_math.tex}  
+
+% ============================================
+%         SYMBOLS Packages
+% ============================================
+\input{\SYMBOL/symbols_NN.tex}
+\input{\SYMBOL/symbols_robot.tex}
+% \input{\SYMBOL/symbols_motor.tex}
+
+% ============================================
+%         MISCELLANEOUS
+% ============================================
+\newtheorem{remark}{Remark}[section]
+\newtheorem{assum}{Assumption}[section]
+\newtheorem{lem}{Lemma}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{prop}{Property}[section]
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\theoremstyle{definition}
+\newtheorem{example}{Example}[section]
+
+% \dottedcontents{section}[2em]{\bfseries}{1.5em}{.75pc}
+% \dottedcontents{subsection}[3.5em]{}{2.5em}{.75pc}
+

@@ -1,0 +1,41 @@
+
+\def\comment{true}
+\usepackage{soul}
+% colors
+% https://latexcolor.com % color list
+\definecolor{airforceblue}{rgb}{0.36, 0.54, 0.66}
+\definecolor{awesome}{rgb}{1.0, 0.13, 0.32}
+\definecolor{blush}{rgb}{0.87, 0.36, 0.51}
+\definecolor{britishracinggreen}{rgb}{0.0, 0.26, 0.15}
+\definecolor{cinnabar}{rgb}{0.89, 0.26, 0.2}
+
+\newcommand{\KHCH}[1]{
+    \ifx \cmt\comment{\color{RoyalPurple} [KH: #1]}\else{}\fi
+} % Kyunghwan's
+\newcommand{\MSRY}[1]{
+    \ifx \cmt\comment{\color{Peach} [MS: #1]}\else{}\fi
+} % Myeongseok's 
+\newcommand{\SHJH}[1]{
+    \ifx \cmt\comment{\color{green} [SH: #1]}\else{}\fi
+} % Seunghun's
+\newcommand{\DHHO}[1]{
+    \ifx \cmt\comment{\color{magenta} [DH: #1]}\else{}\fi
+} % Donghwa's
+\newcommand{\JYKI}[1]{
+    \ifx \cmt\comment{\color{blush} [JY: #1]}\else{}\fi
+} % Jiyun's
+\newcommand{\NSER}[1]{
+    \ifx \cmt\comment{\color{cinnabar} [NS: #1]}\else{}\fi
+    % \ifx \cmt\comment{\colorbox{airforceblue}{[NS: #1]}}\else{}\fi
+} % Naol's
+
+\newcommand{\etal}{\textit{et~al.\ }}
+\newcommand\eg{\textrm{e.g.,\ }}
+\newcommand\ie{\textrm{i.e.,\ }}
+
+\newcommand{\colorLine}[2]{[\tikz[baseline=(current bounding box.base)]{\draw[color=#1,
+#2,line width=2pt] (0,3pt) -- (1.5em,3pt);}]}
+
+\newcommand{\ctxt}[2]{{\color{#1}{#2}\color{black}}}
+\newcommand{\cred}[1]{{\ctxt{awesome}{#1}}}
+\newcommand{\cblue}[1]{{\ctxt{airforceblue}{#1}}}

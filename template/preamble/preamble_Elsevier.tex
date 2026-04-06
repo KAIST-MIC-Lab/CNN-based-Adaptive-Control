@@ -1,0 +1,37 @@
+% ============================================
+%         PATH DEFINITION
+% ============================================
+\newcommand*{\MACRO}{\template/macros}
+\newcommand*{\SYMBOL}{\template/symbols}
+\newcommand*{\PACKAGE}{\template/packages}
+
+% ============================================
+%         PACKAGES LOAD
+% ============================================
+\input{\PACKAGE/packages_Elsevier.tex}
+
+% ============================================
+%         MACROS Packages
+% ============================================
+\input{\MACRO/macros_general.tex}
+\input{\MACRO/macros_math.tex}  
+
+% ============================================
+%         SYMBOLS Packages
+% ============================================
+\input{\SYMBOL/symbols_NN.tex}
+\input{\SYMBOL/symbols_robot.tex}
+% \input{\SYMBOL/symbols_motor.tex}
+
+% ============================================
+%         MISCELLANEOUS
+% ============================================
+\newtheorem{remark}{Remark}
+\newtheorem{assum}{Assumption}
+\newtheorem{lem}{Lemma}
+\newtheorem{theorem}{Theorem}
+\newtheorem{prop}{Property}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\theoremstyle{definition}
+\newtheorem{example}{Example}

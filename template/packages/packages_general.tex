@@ -1,0 +1,100 @@
+% ============================================
+%         General Packages
+% ============================================
+\usepackage{balance}
+
+\usepackage{kotex}      % for Korean
+\usepackage{lipsum}     % for dummy text
+\usepackage{array}
+
+\usepackage{cite}   % for citation
+% \usepackage[
+%     backend=biber,
+%     % style=authoryear,
+%     % doi=false,
+%     isbn=false,
+%     url=false,
+%     minnames=1,
+%     maxcitenames=2, maxbibnames=6,
+%     % natbib=true,
+%     style=ieee,
+%     sorting=none,
+% ]{biblatex}
+
+\usepackage{amsmath,amsfonts}
+\usepackage{amssymb}
+\usepackage{soul}
+
+\def\publish{true}
+\def\draft{false}
+\usepackage{hyperref}
+\ifx \pub\publish % Publish
+    \hypersetup{
+        pdftoolbar=false,        	% show Acrobat’s toolbar?
+        pdfmenubar=false,        	% show Acrobat’s menu?
+        pdffitwindow=false,     	% window fit to page when opened
+        pdfstartview={FitH},    	% fits the width of the page to the window
+        pdftitle={},    	% title
+        pdfauthor={},     	% author
+        %     pdfsubject={},   	% subject of the document
+        %     pdfcreator={},   	% creator of the document
+        %     pdfproducer={}, 	% producer of the document
+        %     pdfkeywords={keyword1, key2, key3}, % list of keywords
+        %     pdfnewwindow=true,      	% links in new PDF window
+        colorlinks=true,       	% false: boxed links; true: colored links
+        linkcolor=black,          	% color of internal links (change box color with linkbordercolor)
+        citecolor=black,       	% color of links to bibliography
+        filecolor=black,      	% color of file links
+        urlcolor=black		% color of external links
+    }
+\else % Draft
+    \hypersetup{
+        pdftoolbar=false,        	% show Acrobat’s toolbar?
+        pdfmenubar=false,        	% show Acrobat’s menu?
+        pdffitwindow=false,     	% window fit to page when opened
+        pdfstartview={FitH},    	% fits the width of the page to the window
+        pdftitle={},    	% title
+        pdfauthor={},     	% author
+        %     pdfsubject={},   	% subject of the document
+        %     pdfcreator={},   	% creator of the document
+        %     pdfproducer={}, 	% producer of the document
+        %     pdfkeywords={keyword1, key2, key3}, % list of keywords
+        %     pdfnewwindow=true,      	% links in new PDF window
+        colorlinks=true,       	% false: boxed links; true: colored links
+        linkcolor=blue,          	% color of internal links (change box color with linkbordercolor)
+        citecolor=blue,       	% color of links to bibliography
+        filecolor=blue,      	% color of file links
+        urlcolor=blue		% color of external links
+    }
+\fi
+
+
+% \usepackage{cleveref}
+% \let\etoolboxforlistloop\forlistloop % save the good meaning of \forlistloop
+% \usepackage{autonum}
+% \let\forlistloop\etoolboxforlistloop % restore the good meaning of \forlistloop
+
+\usepackage{algorithm}
+\usepackage{algorithmic}
+
+\usepackage{epsfig}
+\usepackage[dvipsnames]{xcolor}
+
+% MY PACKAGES ===================================
+
+\usepackage{svg}
+\usepackage{subfig}
+
+\usepackage{textcomp}
+\usepackage{stfloats}
+\usepackage{url}
+\usepackage{verbatim}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{multicol}
+
+\let\proof\relax
+\let\endproof\relax
+\usepackage{amsthm}
+\usepackage{lipsum}
+\usepackage{tikz}

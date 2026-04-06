@@ -1,0 +1,47 @@
+
+\newcommand\R{\mathbb{R}}
+
+\newcommand*{\mv}[1]{\boldsymbol{#1}} % my vector
+\newcommand*{\mm}[1]{\boldsymbol{#1}} % my matrix
+\newcommand*{\norm}[1]{\lVert #1 \rVert} % euclidean norm
+
+% ============================================
+%         FRACTIONS
+% ============================================
+\newcommand\der{\mathrm d}
+\newcommand*{\ddt}{
+    \frac{\der}{\der t}
+}
+\newcommand*{\ddtt}{
+    \tfrac{\der}{\der t}
+}
+\newcommand*{\ddttddtt}{
+    \tfrac{\der^2}{\der t^2}
+}
+\newcommand*{\ddfrac}[2]{
+    \frac{\der {#1}}{\der {#2}}
+}
+\newcommand*{\ddtfrac}[2]{
+    \tfrac{\der {#1}}{\der {#2}}
+}
+\newcommand*{\ppfrac}[2]{
+    \frac{\partial {#1}}{\partial {#2}}
+}
+\newcommand*{\pptfrac}[2]{
+    \tfrac{\partial {#1}}{\partial {#2}}
+}
+
+% ============================================
+%         OPERATORS
+% ============================================
+\DeclareMathOperator{\myvec}{vec}       % vectorization
+\DeclareMathOperator{\myproj}{{Proj}}   % projection
+\DeclareMathOperator{\mysat}{sat}       % saturation
+\DeclareMathOperator{\myrow}{row}       % row of a matrix
+\DeclareMathOperator{\mycol}{Col}       % column of a matrix
+\DeclareMathOperator{\mysym}{sym}       % symmetric part of a matrix
+\DeclareMathOperator{\mydiag}{diag}     % diagonal matrix
+\DeclareMathOperator{\mysign}{sign}     % sign function
+\DeclareMathOperator{\mypoly}{Poly}     % polynomial
+\DeclareMathOperator{\myint}{Int}       % interior of a set
+

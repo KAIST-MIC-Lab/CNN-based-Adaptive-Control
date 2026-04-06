@@ -1,0 +1,134 @@
+\begin{tikzpicture}[
+  x=0.85cm,
+  y=0.85cm,
+  >=Latex,
+  line cap=round,
+  line join=round,
+  every node/.style={font=\footnotesize},
+  track/.style={draw=black!75, line width=1.0pt},
+  centerline/.style={draw=blue!60!black, dashed, line width=0.9pt},
+  helper/.style={draw=black!45, dashed, line width=0.6pt},
+  dim/.style={draw=black!70, <->, line width=0.7pt},
+  state/.style={draw=red!70!black, line width=0.9pt},
+  wheel/.style={draw=black, fill=black!10, line width=0.7pt}
+]
+
+
+ 
+    % Stadium-track geometry
+  \def\R{2.4}         % reference-path radius
+  \def\Ri{1.6}        % inner boundary radius
+  \def\Ro{3.2}        % outer boundary radius
+  \def\L{6.2}         % straight-section length
+  \def\W{0.75}        % half track width used for drawing
+
+  % Vehicle geometry
+  \def\Lf{0.95}       % distance from CG to front axle
+  \def\Lr{0.95}       % distance from CG to rear axle
+
+  % Steering / orientation angles
+  \def\thf{18}        % front steering angle
+  \def\thr{8}         % rear steering angle
+  \def\phia{35}       % arc-center angle shown on the stadium curve
+  \def\psia{30}       % vehicle yaw angle
+
+  % Vehicle offset from the reference centerline
+  \def\offset{0.5}    % lateral displacement used to illustrate tracking error
+
+
+
+
+ % STADIUM RELATED
+  % Arc centers
+  \coordinate (CL) at (0,0);
+  \coordinate (CR) at (\L,0);
+
+  % Reference path: outer and inner stadium boundaries
+  \draw[track]
+    (0,\Ro) -- (\L,\Ro)
+    arc[start angle=90,end angle=-90,radius=\Ro]
+    -- (0,-\Ro)
+    arc[start angle=-90,end angle=-270,radius=\Ro];
+
+  \draw[track]
+    (0,\Ri) -- (\L,\Ri)
+    arc[start angle=90,end angle=-90,radius=\Ri]
+    -- (0,-\Ri)
+    arc[start angle=-90,end angle=-270,radius=\Ri];
+
+  % Centerline of the stadium path
+  \draw[centerline]
+    (0,\R) -- (\L,\R)
+    arc[start angle=90,end angle=-90,radius=\R]
+    -- (0,-\R)
+    arc[start angle=-90,end angle=-270,radius=\R];
+
+  % Arc centers and radius markers
+  \fill (CL) circle (1.2pt);
+  \fill (CR) circle (1.2pt);
+  \node[below left=1pt] at (CL) {$C_{\mathrm{L}}$};
+  \node[below left=1pt] at (CR) {$C_{\mathrm{R}}$};
+
+  \draw[dim] (CL) -- node[above left=-2pt] {$R$} ($(CL)+(140:\R)$);
+  \draw[dim] (CR) -- node[above right=-2pt] {$R$} ($(CR)-(140:\R)$);
+
+  % Straight length marker
+  \draw[dim] (0,\Ro+0.25) -- node[fill=white, inner sep=1pt] {$L$} (\L,\Ro+0.25);
+
+  % Arc angle markers measured from the global +X direction to match atan2(y-y_c, x-x_c)
+  \draw[helper] (CL) -- ($(CL)+(90:\R)$);
+  \draw[helper] (CL) -- ($(CL)+(\R,0)$);
+  \draw[state, draw=black, ->] ($(CL)+(0:0.72)$) arc[start angle=0,end angle=180-\phia,radius=0.72];
+  \node[text=black!70!black] at ($(CL)+(80:1.0)$) {$\theta$};
+
+  \draw[helper] (CR) -- ($(CR)-(90:\R)$);
+  \draw[helper] (CR) -- ($(CR)+(\R,0)$);
+  \draw[state, draw=black, ->] ($(CR)+(0:0.72)$) arc[start angle=0,end angle=-\phia,radius=0.72];
+  \node[text=black!70!black] at ($(CR)+(-10:1)$) {$\theta$};
+  \coordinate (ProjArc) at ($(CR)+(-35:\R)$);
+  \fill[blue!60!black] (ProjArc) circle (0.9pt);
+  \node[below left =0.01] at (ProjArc) {$(X^\star,Y^\star)$};
+
+  % Global frame <---- Edited here
+  \coordinate (O) at (0,-\R);
+  \draw[->, thick] (O) -- ++(1.3,0) node[right] {$X$};
+  \draw[->, thick] (O) -- ++(0,1.3) node[above] {$Y$};
+
+
+
+
+  % VEHICLE RELATED
+  % Vehicle pose on the lower straight segment <---- Edited here
+  \coordinate (CG) at (3.2,-\R+\offset);
+  \coordinate (Pstar) at (3.2,-\R);
+  \coordinate (RearAxle) at ($(CG)+(-\Lr,0)$);
+  \coordinate (FrontAxle) at ($(CG)+(\Lf,0)$);
+
+ % Vehicle body
+  \begin{scope}[shift={(CG)}, rotate=\psia]
+    \draw[state, fill=red!8] (-0.6,-0.3) rectangle (0.6,0.3);
+  \end{scope}
+  \fill[state] (CG) circle (1.1pt);
+  \node[above=2pt] at (CG) {CG};
+
+  % Body-fixed frame
+  \draw[state, ->] (CG) -- ++({1.6*cos(\psia)},{1.6*sin(\psia)}) node[above right] {$x_b$};
+  \draw[state, ->] (CG) -- ++({-1.2*sin(\psia)},{1.2*cos(\psia)}) node[above left] {$y_b$};
+
+  % Yaw angle from global X to body x-axis
+  \draw[helper] (CG) -- ++(1.5,0);
+  \draw[state, draw=black, ->] ($(CG)+(1.2,0)$) arc[start angle=0,end angle=\psia,radius=1.2];
+
+  \node[text=black] at ($(CG)+(1.4,0.28)$) {$\psi$};
+
+  % Lateral tracking error to the reference path
+  \fill[blue!60!black] (Pstar) circle (0.9pt);
+  \draw[helper] (CG) -- (Pstar);
+  \draw[draw=black!70, line width=0.7pt]
+  ($(Pstar)+(0.8,0)$) -- node[right, fill=white, inner sep=0.5pt] {$e_y$} ($(CG)+(0.8,0)$);
+
+
+
+
+  
+\end{tikzpicture}

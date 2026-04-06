@@ -49,3 +49,4 @@
 # /*.pdf
 *.sav
 *-checkpoint.ipynb
+/doc

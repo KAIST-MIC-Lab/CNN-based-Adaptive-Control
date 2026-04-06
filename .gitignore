@@ -50,3 +50,4 @@
 *.sav
 *-checkpoint.ipynb
 /doc
+.codex

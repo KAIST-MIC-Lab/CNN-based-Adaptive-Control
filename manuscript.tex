@@ -6,7 +6,6 @@
 \input{\template/preamble/preamble_journal.tex}
 \allowdisplaybreaks
 
-
 % ==========================================
 % will be uploaded in template repo
 \usepackage{microtype}
@@ -16,12 +15,27 @@
 \graphicspath{{\FIGURESPATH/}}
 
 % Symbols reused in the controller-design section.
-\newcommand{\matPhi}{\mathbf{\Phi}}
-\newcommand{\PhiC}{\Phi_{j_c}^{C}}
-\newcommand{\phiC}{\phi_{j_c}^{C}}
-\newcommand{\phiF}{\phi_{j_f}^{F}}
-\newcommand{\tH}{\hat{\theta}}
+\newcommand{\matPhi}{\NN}
+\newcommand{\PhiStar}{\idealNN}
+\newcommand{\NNc}{\NN_{j_c}^{C}} 
+% \newcommand{\NNc}{\NN^{C}} % I think the subscript should be separated.
+% \newcommand{\cidx}{j_c}    % CVL index
+%     \NNc -> \NNc_{\cidx}   
+%             additionally, for the case when the notation of the index changes, the notation should be changed to some command (my suggestion is \cidx)
+\newcommand{\phiF}{\phi_{j_f}^{F}} % plz change like \NNc (\phiF -> \NNf)
 
+\newcommand{\sat}{\mysat} 
+
+\newcommand{\matJ}{\mathcal{J}}   % you don't need to use too many new commands :(
+\newcommand{\matL}{\mathcal{L}}   % sometimes, it is confusing.
+                                  % I usually use newcommand for symbols that potentially can be changed in the future
+
+% This things, as well
+\newcommand{\tHF} {\hat{\theta}_{Fj_{kf}}}
+\newcommand{\tH}{\estwth}
+\newcommand{\matI}{\mathcal{I}}
+
+% Symbols for vehicle system
 \newcommand*{\Ff}{F_f}
 \newcommand*{\Fr}{F_r}
 \newcommand*{\delf}{\delta_f}
@@ -32,14 +46,6 @@
 \newcommand*{\alpr}{\alpha_r}
 \newcommand*{\Cf}{C_f}
 \newcommand*{\Cr}{C_r}
-
-\newcommand{\PhiStar}{\Phi^*}
-\newcommand{\sat}{\mysat} 
-\newcommand{\matJ}{\mathcal{J}}
-\newcommand{\matL}{\mathcal{L}}
-
-\newcommand{\tHF} {\hat{\theta}_{Fj_{kf}}}
-\newcommand{\matI}{\mathcal{I}}
 % ==========================================
 
 \newcommand*{\figSizeTwoCol}{.49}
@@ -51,7 +57,8 @@
 \bstctlcite{IEEEexample:BSTcontrol}
 
 \title{
-  Neuro-Adaptive Control Without State Measurement: A 1D-CNN Framework for Higher-Order Systems Using Historical Output Data
+  Neuro-Adaptive Control Without State Measurement: 
+  A 1D-CNN Framework for Higher-Order Systems Using Historical Data
 } %% Article title
 
 \author{
@@ -122,6 +129,17 @@ In this study, the following notation is used:
 % ==========================================
 \section{Introduction}
 
+\MSRY{Naol I ask you to write the following things}
+\cred{
+\begin{itemize}
+  \item The jacobian of NN is missing (appendix in previous paper)
+  \item can you change notations of NN? (go to above part where newcommands are defined)
+  \item I removed some notations in your explanation about test circuit. If you think they are necessary, please let me know or if not, re-draw the figure.
+  \item Think about controllers to compare with for comparative study
+  \item Explain how you implemented the simulation 
+\end{itemize}
+}
+
 \subsection{Motivation}
 %The empirical performances of NNs have been shown in many applications, due to their universal approximation property \cite{UnivDNN}. 
 Neural networks (NNs) have been widely used in control applications as a function approximator for adaptive control \cite{BookEKcontrol}, state estimation \cite{BoockEKestimation}, and so on. 
@@ -152,18 +170,60 @@ A simulation study using a control-affine nonlinear system is performed to demon
 In addition, the tracking performance of the proposed controller is compared with that of the DNN-based adaptive controller, which is a form in which the CVLs are not included in the proposed controller.
 %\color{black}
 
-\subsection{Contributions}
+\MSRY{1D-CNN is suitalbe for time serial data, and the computational cost is lower than DNNs!}
 
+\subsection{Contributions}
 
 
 \subsection{Organization}
 The remainder of this paper is organized as follows. Section II describes the system details of the proposed CVL-CONAC architecture. Section III presents the problem formulation and control objectives. Section IV develops the adaptation laws. Section V provides the stability analysis. Section VI presents the numerical validation results. Finally, Section VII concludes the paper.
 
 
+% ==========================================
+% II: PROBLEM FORMULATION AND CONTROL OBJECTIVES
+% ========================================== 
+\section{Problem Formulation and Control Objectives} \label{sec:problem_formulation}
+
+Consider the 2nd order affine strict feedback nonlinear system:
+\begin{equation} \label{eq:sys}
+  \begin{cases}
+    \ddtt\mv{x}_1
+    =
+    \mv{f}_1(\mv{x}_1, \mv{x}_2)
+    \\
+    \ddtt\mv{x}_2
+    =
+    \mv{f}_2(\mv{x}_1, \mv{x}_2)
+    +
+    \mv{g}(\mv{x}_1, \mv{x}_2) \mv{u}
+    ,
+  \end{cases}
+\end{equation}
+where $\mv{x}_i \in \R^n$ and $\mv{u} \in \R^n$ denote the state and control input, respectively, and $\mv{f}_i: \R^{2n} \to \R^n$ and $\mv{g}: \R^{2n} \to \R^{n\times n}$ are unknown nonlinear functions for $i \in \{1,2\}$.
+The system output is defined as $\mv{y} = \mv{x}_1$, assuming that the state $\mv{x}_1$ can be measured while $\mv{x}_2$ is not measurable. 
+
+The system \eqref{eq:sys} satisfies the following assumptions:
+\begin{assum} \label{assum:B:positive}
+  The control effectiveness matrix $\mv{g}(\cdot)$ is positive definite, i.e., $\lambda_{\min}(\mv{g}(\cdot)) > 0$.
+\end{assum}
+
+\MSRY{Add additional assumptions if necessary.}
+
+We assume that the desired trajectory $\mv{y}_d(t)\in\R_{\le0}\to\R^n$ is given and satisfies the following assumption:
+
+\begin{assum} \label{assum:desired:y}
+  The desired trajectory $\mv{y}_d(t)$ is bounded, such that $\norm{\mv{y}_d} \le \overline{y}_d$ for some $\overline{y}_d \in \R_{>0}$.
+  % and has bounded derivatives up to the second order
+  %  and $\norm{\ddtt{\mv{y}}_d } \le \overline{y}_d$
+\end{assum}
+
+The control objective is to design a NAC using 1D-CNN framework that makes the system output $\mv{y}$ track the desired trajectory $\mv{y}_d$ by generating the control input $\mv{u}$ directly from the historical data (without state), without using a pre-trained network, and ensuring the stability of the closed-loop system during the adaptation process.
+
 %----------------------------------------------------------------%
 %--- III. CVL-CONAC ARCHITECTURE & OPTIMIZATION ----------------%
 %----------------------------------------------------------------%
-\section{System Details}
+\section{Proposed Controller} \label{sec:ctrl}
+
 \begin{figure}[!t]
   \centering
   \includegraphics[width=\columnwidth]{figures/CVLCONACArch.png}
@@ -171,17 +231,39 @@ The remainder of this paper is organized as follows. Section II describes the sy
   \label{fig:CVL-CONAC-arch}
 \end{figure}
 
-The proposed controller architecture is shown in Fig.~\ref{fig:CVL-CONAC-arch}. The network $\estNN$ consists of CVLs and FCLs, which are detailed in the following subsections.
-\subsection{CVL-CONAC Architecture}
-The network $\estNN$ is designed as a hybrid architecture suitable for capturing temporal dynamics from historical data[??].
+\subsection{Controller Architecture} \label{sec:ctrl:arch}
 
-\subsubsection{Convolutional Layers (CVLs)}
+The proposed controller architecture is shown in Fig.~\ref{fig:CVL-CONAC-arch}. 
+The control input $\mv{u}$ is solely determined by the NN $\estNN$ without any additional terms,
+The NN input is generated by stacking historical data as follows:
+\begin{equation}
+  \mm{Z}
+  := 
+  \begin{bmatrix}
+    \mv{z}(t) 
+    &
+    \mv{z}(t-\Delta t) 
+    % &
+    \ 
+    \cdots 
+    % &
+    \ 
+    \mv{z}(t-(k_c-1)\Delta t)
+  \end{bmatrix}
+  \in \R^{n \times k_c}
+  ,
+\end{equation}
+where $\mv{z} := \left(\mv{y}^\top,\mv{y}_d^\top\right)^\top \in \R^{2n}$, $\Delta t$ is the sampling time and $k_c$ is the number of sampled data points.
+The NN $\estNN$ consists of convolutional layers (CVLs) and fully-connected layers (FCLs), which are detailed in the following subsections.
+
+\subsubsection{Convolutional Layers (CVLs)} \label{sec:ctrl:arch:cvl}
+
 The CVLs are represented recursively as:
 \begin{equation}\label{eq:cvl_output}
-  \PhiC 
+  \cred{\NNc} 
   = 
   \begin{cases} 
-    O(\phiC(\Phi_{j_c-1}^{C}),
+    O(\cred{\NNc}(\Phi_{j_c-1}^{C}),
     \Omega_{j_c},B_{j_c}), 
     & 
     j_c \in [1,\dots,k_c] \\ 
@@ -191,7 +273,7 @@ The CVLs are represented recursively as:
   \end{cases}
   ,
 \end{equation}
-where $X \in \R^{n_0 \times m_0}$ denotes the network input matrix, $O:\R^{n_{j_c} \times m_{j_c}} \times \R^{p_{j_c} \times m_{j_c} \times q_{j_c}} \times \R^{q_{j_c}} \to \R^{n_{j_c+1} \times m_{j_c+1}}$ denotes the CNN operator (see Appendix A), and $\phiC:\R^{n_{j_c} \times m_{j_c}} \to \R^{n_{j_c} \times m_{j_c}}$ denotes the matrix activation function (i.e., $\phi^C(\Phi_{j_c-1}^{C})_{(i,j)} = \sigma_{j_c}(\Phi_{j_c-1}^{C})_{(i,j)}$) for some activation function $\sigma_{j_c}: \R \to \R$. 
+where $O:\R^{n_{j_c} \times m_{j_c}} \times \R^{p_{j_c} \times m_{j_c} \times q_{j_c}} \times \R^{q_{j_c}} \to \R^{n_{j_c+1} \times m_{j_c+1}}$ denotes the CNN operator (see Appendix A), and $\cred{\NNc}:\R^{n_{j_c} \times m_{j_c}} \to \R^{n_{j_c} \times m_{j_c}}$ denotes the matrix activation function (i.e., $\phi^C(\Phi_{j_c-1}^{C})_{(i,j)} = \sigma_{j_c}(\Phi_{j_c-1}^{C})_{(i,j)}$) for some activation function $\sigma_{j_c}: \R \to \R$. 
 The first activation function $\phi_{0}^{C}$ should be a bounded nonlinear function to ensure that the input to the first CNN operator is bounded. 
 In this study, $\alpha_1 \tanh(\cdot)$ is selected with $\alpha_1 \in \R_{>0}$. 
 The filter set $\Omega_{j_c}$ contains $q_{j_c}$ filters $W_{j_c}^{(i)} \in \R^{p_{j_c} \times m_{j_c}}$, $\forall i \in [1,\dots,q_{j_c}]$, and is represented as $\Omega_{j_c} = \{W_{j_c}^{(1)},\dots,W_{j_c}^{(q_{j_c})}\}$, where superscript $i$ denotes the filter index. The bias vector $B_{j_c}$ consists of $q_{j_c}$ biases.
@@ -199,7 +281,7 @@ The filter set $\Omega_{j_c}$ contains $q_{j_c}$ filters $W_{j_c}^{(i)} \in \R^{
 The weights for the $j_c$-th CVL layer are collectively represented as
 $\tH_{Cj_c} \triangleq [\text{vec}(\Omega_{j_c})^T, B_{j_c}^T]^T$.
 
-\subsubsection{Fully-Connected Layers (FCLs)}
+\subsubsection{Fully-Connected Layers (FCLs)} \label{sec:ctrl:arch:fcl}
 The output matrix of the CVLs is input to the concatenate layer
 $C(\Phi_{k_c}^{C}) = [\text{vec}(\Phi_{k_c}^{C^{\top}})^{\top}, 1]^{\top}$
 before the input layer of FCLs for compatibility between the CVLs and FCLs.
@@ -223,104 +305,8 @@ Note that $C(\Phi_{k_c}^{C})$ and $\Phi_{j_f}^{F}$ are augmented by $1$ to consi
 
 The FCL weights for the $j_f$-th layer are $\tH_{Fj_f} \triangleq \text{vec}(V_{j_f})$.
 
+\subsection{Adaptation Laws Derivation} \label{sec:ctrl:adap}
 
-% ==========================================
-% II: PROBLEM FORMULATION AND CONTROL OBJECTIVES
-% ========================================== 
-\section{Problem Formulation and Control Objectives}
-
-\subsection{System Dynamics}
-The following four wheel steered(4WS) 2-DOF vehicle lateral dynamics \cite{Rajamani:2011aa} are considered:
-\begin{equation} \label{eq:sys:lat:dyn}
-  \begin{cases}
-    \ddtt v_y
-    =
-    \tfrac{1}{m} 
-    \left(
-    \Ff + \Fr
-    \right)
-    -
-    v_x r
-    ,
-    % mv_x (\ddtt \beta+r)
-    % =
-    % \Ff + \Fr
-    % ,
-    \\
-    \ddtt r
-    =
-    \tfrac{1}{I_z}
-    \left(
-      \Ff\lf-\Fr\lr
-    \right)
-    ,
-  \end{cases}
-\end{equation}
-where $v_x$ is the longitudinal velocity, $v_y$ is the lateral velocity, and $r=\ddtt\psi$ is the yaw rate, $m$ is the vehicle mass and $I_z$ is the yaw moment of inertia, $\lr$ and $\lr$ are the distances from the center of gravity to the front and rear axles, respectively, and $\Ff$ and $\Fr$ are the front and rear lateral tire forces, respectively, and modelled as:
-\begin{equation} \label{eq:sys:lat:dyn:tire}
-    F_{i}
-    = 
-    F_{\max,i}
-    \tanh
-    \left(
-      \tfrac{C_i}{F_{\max,i}}\alpha_i
-    \right)
-    , 
-    \quad
-    \forall i \in \{f,r\}
-    ,
-\end{equation}
-where $C_i$, $F_{\max,i}$, and $\alpha_i$ are the cornering stiffness, saturation limit, and slip angle of the front ($i=f$) and rear ($i=r$) tires, respectively.
-The slip angles are given by
-\begin{equation}
-    \alpf
-    = 
-    \delf
-    - 
-    \tfrac{v_y+\lf r}{v_x}
-    , 
-    \quad
-    \alpr 
-    = 
-    \delr - 
-    \tfrac{v_y-\lr r}{v_x}
-    ,
-\end{equation}
-where $\delf$ and $\delr$ are the effective front and rear steering angles respectively. 
-In order to capture the lag between the steering commands and the actual steering angles, the actuator dynamics are modeled as:
-% \begin{equation} \label{eq:sys:actuator:lag}
-$
-    \ddtt \delta_i
-    = \tfrac{\omega_i-\delta_i}{\tau}
-    , 
-    \quad
-    \forall i \in \{f,r\}
-    ,
-% \end{equation}
-$
-where $\omega_i,\ \forall i\in\{f,r\}$ denotes the front and rear steering commands, respectively, and $\tau>0$ is the actuator time constant. The control input is then defined as $u \triangleq [\omega_f, \omega_r]^\top$. \NSER{The system can be expressed as affine form}
-
-\hfill
-
-The global position kinematics are given by \eqref{eq:sys:global:kinematics}:
-\begin{equation} \label{eq:sys:global:kinematics}
-    \dot{X}_a 
-    = 
-    v_x \cos\psi
-    - 
-    v_y \sin\psi
-    , 
-    \quad
-    \dot{Y}_a 
-    = 
-    v_x \sin\psi 
-    + 
-    v_y \cos\psi
-    ,
-\end{equation}
-where $(X_a,Y_a)$ denotes the vehicle position in the global frame, and $\psi$ denotes the yaw angle. The yaw rate $\dot{\psi}$ is obtained by integrating the yaw acceleration $\ddot{\psi}$ in \eqref{eq:sys:lat:dyn}.
-
-\subsection{Control Objectives}
 An end to end controller(i.e. $u=\estNN$ ) is designed to drive errors defined by \eqref{eq:sys:error} to zero:
 \begin{equation} \label{eq:sys:error}
     e 
@@ -337,32 +323,25 @@ An end to end controller(i.e. $u=\estNN$ ) is designed to drive errors defined b
     , 
 \end{equation}
 
-which is obtained by solving optimization problem in \eqref{eq:sys:opt_problem}:
-\begin{equation} \label{eq:sys:opt_problem}
-  \begin{aligned}
-    \min_{\tH} \quad 
-    & 
-    \matJ(e, \tH) 
-    = 
-    \tfrac{1}{2}e^{\top}e \\
-    \text{s.t.} \quad 
-    & 
-    c_i(\tH) 
-    = 
-    \tfrac{1}{2} \left( \|\tH_i\|^2 
-    - 
-    \bar{\theta}_i^2 \right) \le 0, 
-    \quad 
-    \forall i \in \matI \\
-    & 
-    c_{\estNN}(\tH) 
-    = 
-    \tfrac{1}{2} \left( \|\estNN\|^2 
-    - 
-    \bar{u}^2 \right) \le 0
-    ,
-  \end{aligned}
-\end{equation}
+which is obtained by solving optimization problem in \eqref{eq:opt:prob}:
+\MSRY{Must be revised!}
+\begin{subequations} \label{eq:opt:prob} 
+    \begin{align} 
+        \min_{\estwth} \quad 
+        & 
+        J(\mv{e};\estwth):= \tfrac{1}{2} \mv{e}^\top \mv{e} \label{eq:opt:prob:obj} 
+        \\ 
+        \text{subject to} \quad 
+        & 
+        c^{\theta}_i(\estwth_i):=\tfrac{1}{2}\norm{\estwth_i}^2 - \tfrac{1}{2}\overline{\theta}_i^2 \le 0, 
+        \  \forall i\in\mathcal{K} \label{eq:opt:prob:const1} 
+        \\ 
+        & 
+        c^{u}_{j}(\estwth) \le 0, 
+        \quad \forall j\in\mathcal{I} \label{eq:opt:prob:const2} 
+        ,
+    \end{align}%
+\end{subequations}
 where
 \[
   \matI 
@@ -376,11 +355,6 @@ $c_i$ are the weight norm constraints (i.e. ensuring boundedness) and
 $c_{\estNN}$ is the output norm constraint (i.e. ensuring input saturation limits
 $\bar{u}$).
 
-
-%----------------------------------------------------------------%
-%--- IV. ADAPTATION LAWS ----------------------------------------%
-%----------------------------------------------------------------%
-\section{Adaptation Laws}
 Solving the optimization problem in \eqref{eq:sys:opt_problem} is equivalent to finding the saddle point of the Lagrangian function given in \eqref{eq:adapt:lagrangian}:
 \begin{equation}  \label{eq:adapt:lagrangian}
   \matL(\tH, \boldsymbol{\lambda}) 
@@ -395,7 +369,6 @@ Solving the optimization problem in \eqref{eq:sys:opt_problem} is equivalent to 
 \end{equation}
 where $\lambda_i, \lambda_{\estNN} \ge 0$ are the Lagrange multipliers.
 
-\subsection{Primal Update}
 The weight update for each block $\tH_i$ is proportional to the
 negative gradient of the Lagrangian: $\dot{\tH}_i = -\alpha \nabla_{\tH_i} \matL$.
 \subsubsection{Objective Gradient} The objective gradient is approximated using the chain rule and the sensitivity approximation $\tfrac{\partial e}{\partial u} = \tfrac{\partial e}{\partial \estNN} \approx \mathbf{I_n}$:
@@ -411,7 +384,6 @@ negative gradient of the Lagrangian: $\dot{\tH}_i = -\alpha \nabla_{\tH_i} \matL
   ,
 \end{equation}
 
-\subsubsection{Constraint Gradients} 
 The gradients of the constraints are given by:
 \begin{equation} \label{eq:adapt:constraint_grads}
 \begin{cases}
@@ -454,7 +426,6 @@ The resulting gradient descent weight update rule for the primal variables is:
 \end{equation}
 where $\alpha \in \R_{>0}$ is the learning rate.
 
-\subsection{Dual Update}
 The Lagrange multipliers are updated using projected gradient ascent:
 \begin{equation} \label{eq:adapt:dual_update}
   \begin{cases}
@@ -476,68 +447,12 @@ The Lagrange multipliers are updated using projected gradient ascent:
 
 where $\beta_j \in \R_{>0}$ is the update rate for the corresponding multiplier.
 
-\subsection{Network Jacobians}
-The adaptation law in \eqref{eq:adapt:primal_update} requires weights 
-Jacobians and are given by:
-\subsubsection{FCL Jacobians}
-The Jacobians of $\estNN$ with respect to the weights of FCL are derived recursively as the follows:
-\begin{equation} \label{eq:adapt: fcl_jacobians}
-  \tfrac{\partial \estNN}{\partial \tH_{F j_f}} 
-  = 
-  \begin{cases}
-    (\prod_{l=1}^{k_f} V_{l}^{\top} \phi_{l}^{F'}) 
-    \,
-    (I_{l_0} \otimes C(\Phi_{k_c}^{C})), 
-    & 
-    j_f = 0 
-    \\
-    (\prod_{l=j_f+1}^{k_f} V_{l}^{\top} \phi_{l}^{F'}) 
-    \,
-    (I_{l_{j_f}} \otimes \Phi_{j_f-1}^{F^{\top}}), 
-    & 
-    j_f \in [1,\dot, k_f]
-    ,
-  \end{cases}
-\end{equation}
-
-where $\phi_{j_f}^{F'} \triangleq \frac{\partial \phi_{j_f}^{F}(x)}{\partial x}$
-is the Jacobian of the activation function with respect to some vector $x$.
-
-\subsubsection{CVL Jacobians}
-The Jacobians of $\estNN$ with respect to the weights of CVLs (filters
-$\Omega_{j_c}$ and biases $B_{j_c}$) are given as follows: 
-\begin{IEEEeqnarray}{l}
-  \tfrac{\partial \estNN_i}{\partial W_{j_c}^{l_k}} 
-  =
-  \sum_{l_i=1}^{n_{j_c+1}} 
-  \Big(
-    \tfrac{\partial \estNN_i}{\partial \PhiC(l_i,l_k)}
-    \operatorname{row}(l_b:l_e) (\phiC)
-  \Big)
-  , 
-  \\
-  \tfrac{\partial \estNN_i}{\partial B_{j_c}(l_k)} 
-  =
-  \sum_{l_i=1}^{n_{j_c+1}} 
-  \Big(
-    \tfrac{\partial \estNN_i}{\partial \PhiC(l_i,l_k)}
-    \cdot 1
-  \Big), 
-\end{IEEEeqnarray}
-with $l_b \triangleq l_i$, $l_e \triangleq l_i+p_{j_c}-1$,  $j_c \in [0, \dots, k_c],  l_k \in [1, \dots, q_{j_c}]$
-
-where $\Phi_i$ denote the $i$-th output of $\estNN$, $\PhiC \triangleq \phiC(\Phi_{j_c-1}^{C})$ for
-$j_c \in [1, \dots, k_c]$, $\Phi_{0}^{C} \triangleq \phi_{0}^{C}(X)$, and
-$\partial \estNN_i / \partial \PhiC$ denotes the backpropagated gradient
-of $\estNN_i$ with respect to $\PhiC$ (obtained using the back-propagation method, detailed in Appendix B).
-
-
 %----------------------------------------------------------------%
 %--- V. STABILITY ANALYSIS -------------------------------------%
 %----------------------------------------------------------------%
 \section{Stability Analysis}
 
-
+\MSRY{will be added later}
 
 % ============================================
 %    VI: NUMERICAL VALIDATION
@@ -547,34 +462,142 @@ of $\estNN_i$ with respect to $\PhiC$ (obtained using the back-propagation metho
 \subsection{Validation Setup}
 
 In this section, the proposed controller is validated through numerical
-simulation of non-linear vehicle model in \eqref{eq:sys:lat:dyn}. The vehicle parameters are selected as $m = 1463~\mathrm{kg}$,
-$I_z = 1967.8~\mathrm{kg \cdot m^2}$, $\lf = 1.2~\mathrm{m}$, and
-$\lr = 1.6~\mathrm{m}$. The longitudinal velocity is fixed at
-$v_x = 110~\mathrm{km/h}$. The front and rear cornering stiffness values are
-allowed to vary within
-$C_i \in [78.4,\,145.6]~\mathrm{kN/rad}$ for $i \in \{f,r\}$, which
-corresponds to a $\pm 30\%$ variation about the nominal value
-$112~\mathrm{kN/rad}$.
-
-The desired trajectory is selected as a closed stadium-shaped path composed of
-two straight segments and two semicircular arcs. Let $L$ and $R$ denote the
-straight length and turning radius, respectively. Then, the lower and upper
-straight segments are defined by
-\begin{equation} \label{eq:stadium_path:upper}
-    \mathcal{P}_1 
-    = 
-    \{(x,y)\,|\,0 \le x \le L,\ y=0\},
+simulation of the 4 wheel steering (4WS) vehicle model \cite{Rajamani:2011aa} described as follows:
+\begin{equation} \label{eq:sys:lat:dyn}
+  \begin{cases}
+    \ddtt v_y
+    =
+    \tfrac{1}{m} 
+    \left(
+    \Ff + \Fr
+    \right)
+    -
+    v_x r
+    ,
+    % mv_x (\ddtt \beta+r)
+    % =
+    % \Ff + \Fr
+    % ,
+    \\
+    \ddtt r
+    =
+    \tfrac{1}{I_z}
+    \left(
+      \Ff\lf-\Fr\lr
+    \right)
+    .
+  \end{cases}
 \end{equation}
-\begin{equation} \label{eq:stadium_path:lower}
-    \mathcal{P}_2
+The nomenclature is listed in Table~\ref{table:sys:nomenclature}.
+The lateral tire forces $\Ff$ and $\Fr$ are the main sources of nonlinearity in the system, and $\Ff$ and $\Fr$ are modelled as:
+\begin{equation} \label{eq:sys:lat:dyn:tire}
+    F_{i}
     = 
-    \{(x,y)\,|\,0 \le x \le L,\ y=2R\}
+    F_{\max,i}
+    \tanh
+    \left(
+      \tfrac{C_i}{F_{\max,i}}\alpha_i
+    \right)
+    , 
+    \quad
+    \forall i \in \{f,r\}
     ,
 \end{equation}
-The left and right turning sections are semicircles centered at
-$C_{\mathrm{L}}=(0,R)$ and $C_{\mathrm{R}}=(L,R)$, respectively. 
-This path contains both zero-curvature and constant-curvature segments 
-and is therefore suitable for evaluating straight-line regulation and turning performance within a single experiment. Figure~\ref{fig:stadium-geometry} illustrates the stadium path together with the vehicle pose, body-fixed frame, and tracking error used in the validation setup.
+where $F_{\max,i}$ are saturation limits and $\alpf$ and $\alpr$ are the slip angles for the front and rear tires, respectively.
+The slip angles are given by
+\begin{equation}
+    \alpf
+    = 
+    \delf
+    - 
+    \tfrac{v_y+\lf r}{v_x}
+    , 
+    \quad
+    \alpr 
+    = 
+    \delr - 
+    \tfrac{v_y-\lr r}{v_x}
+    .
+\end{equation}
+In order to capture the lag between the steering commands and the actual steering angles, the actuator dynamics are modeled as:
+\begin{equation} \label{eq:sys:actuator:lag}
+% $
+    \ddtt \delta_i
+    = 
+    \tfrac{1}{\tau}
+    \left(
+      \omega_i-\delta_i
+    \right)
+    , 
+    \quad
+    \forall i \in \{f,r\}
+    ,
+\end{equation}
+% $
+where $\omega_f$ and $\omega_r$ denotes the front and rear steering commands, respectively, and $\tau>0$ is the actuator time constant. 
+
+By defining the state as $\mv{x}_1 := \left( v_y, r \right)^\top$ and $\mv{x}_2 := \left( \delf, \delr \right)^\top$, and the control input as $\mv{u} := \left( \omega_f, \omega_r \right)^\top$, the system can be expressed in the form of \eqref{eq:sys}.
+Additionally, only the output $\mv{y}=\mv{x}_1$ can be measured, and the state $\mv{x}_2$ is not measurable by the system definition.
+
+\MSRY{Depending on the problem formulation, state can be position. (for now it is speed and time lag is added in control input intentionally to make the system second order) Tell me later how are you implementing controllers (what is the error for now? if the position is error as you wrote here, then the system is actuall third order)}
+The vehicle parameters are selected as $m = \qty{1463}{\kilo\gram}$, $I_z = \qty{1967.8}{\kilo\gram\meter\squared}$, $\lf = \qty{1.2}{\meter}$, and $\lr = \qty{1.6}{\meter}$. 
+The longitudinal velocity is fixed at $v_x = \qty{110}{\kilo\meter\per\hour}$. 
+\cred{
+The front and rear cornering stiffness values are allowed to vary within $C_i \in [\qty{78.4},\,\qty{145.6}{\kilo\newton\per\radian}]$ for $i \in \{f,r\}$, which corresponds to a $\pm 30\%$ variation about the nominal value $\qty{112}{\kilo\newton\per\radian}$.
+}
+\MSRY{where is Fmax, tau?}
+
+\hfill
+
+The desired trajectory is designed as a closed stadium-shaped path composed of two straight segments and two semicircular arcs, as illustrated in Fig.~\ref{fig:stadium-geometry}.
+Let $L$ and $R$ denote the straight length and turning radius, respectively. 
+\MSRY{I omitted many parts below. They look unnecessary. If you think they are necessary, please let me know.}
+% Then, the lower and upper straight segments are defined by
+% \begin{equation} \label{eq:stadium_path:upper}
+%     \mathcal{P}_1 
+%     = 
+%     \{(x,y)\,|\,0 \le x \le L,\ y=0\},
+% \end{equation}
+% \begin{equation} \label{eq:stadium_path:lower}
+%     \mathcal{P}_2
+%     = 
+%     \{(x,y)\,|\,0 \le x \le L,\ y=2R\}
+%     ,
+% \end{equation}
+% The left and right turning sections are semicircles centered at $C_{\mathrm{L}}=(0,R)$ and $C_{\mathrm{R}}=(L,R)$, respectively. 
+% This path contains both zero-curvature and constant-curvature segments and is therefore suitable for evaluating straight-line regulation and turning performance within a single experiment. 
+% Figure~\ref{fig:stadium-geometry} illustrates the stadium path together with the vehicle pose, body-fixed frame, and tracking error used in the validation setup.
+
+\begin{table}[!t]
+  \renewcommand{\arraystretch}{1.3}
+  \centering
+  \begin{tabular}{c l c} 
+  \hline
+  \textbf{Symbol} & \textbf{Description} & \textbf{Unit} \\
+  \hline
+  \hline 
+  $m$ & Mass of the vehicle & \qty{}{\kilo\gram} \\
+  \hline
+  $I_z$  & Yaw moment of inertia of the vehicle & \qty{}{\kilo\gram\meter\squared} \\  
+  \hline
+  $v_x$ & Longitudinal velocity of the vehicle & \qty{}{\meter\per\second} \\
+  \hline
+  $v_y$ & Lateral velocity of the vehicle & \qty{}{\meter\per\second} \\
+  \hline
+  $r$ & Yaw rate of the vehicle & \qty{}{\radian\per\second} \\
+  \hline
+  $\lf,\lr$ & Distance from CG to front/rear axle & \qty{}{\meter} \\
+  \hline
+  $\Cf,\Cr$ & Cornering stiffness of front/rear tires & \qty{}{\newton\per\radian} \\
+  \hline
+  $\Ff,\Fr$ & Lateral forces at front/rear tires & \qty{}{\newton} \\
+  \hline
+  $\delf,\delr$ & Front/rear steering angle input & \qty{}{\radian} \\
+  \hline
+  \end{tabular}
+  \caption{Nomenclature for the 4WS vehicle model.}
+  \label{table:sys:nomenclature}
+\end{table}
 
 \begin{figure}[!t]
     \centering
@@ -585,9 +608,40 @@ and is therefore suitable for evaluating straight-line regulation and turning pe
       \input{tex/IEEE/figures/stadium_vehicle_geometry.tikz}%
       }%
     }
-    \caption{Stadium-track geometry and vehicle pose used in the validation setup.}
+    \caption{
+      Geometry of the stadium path and vehicle pose.
+    }
     \label{fig:stadium-geometry}
 \end{figure}
+
+\hfill
+
+For comparative study, we consider the following \cred{three} controllers as listed in Table~\ref{table:controllers}.
+\MSRY{Should be added more later}
+
+
+\hfill
+
+\MSRY{Maybe below can be moved to our document}
+\cblue{
+  
+The global position kinematics are given by \eqref{eq:sys:global:kinematics}:
+\begin{equation} \label{eq:sys:global:kinematics}
+    \dot{X}_a 
+    = 
+    v_x \cos\psi
+    - 
+    v_y \sin\psi
+    , 
+    \quad
+    \dot{Y}_a 
+    = 
+    v_x \sin\psi 
+    + 
+    v_y \cos\psi
+    ,
+\end{equation}
+where $(X_a,Y_a)$ denotes the vehicle position in the global frame, and $\psi$ denotes the yaw angle. The yaw rate $\dot{\psi}$ is obtained by integrating the yaw acceleration $\ddot{\psi}$ in \eqref{eq:sys:lat:dyn}.
 
 To generate the path-following reference at each simulation step, the current vehicle position $(X_a,Y_a)$ is projected onto the corresponding path segment. For straight segments, the desired heading is:
 \begin{equation}
@@ -625,7 +679,32 @@ The desired heading is then taken as the tangent direction of the arc,
 \end{equation}
 The tracking errors are then defined by the lateral displacement from the projected point and the heading error.
 
+}
+
 \subsection{Validation Results}
+
+
+\begin{table}[t]
+    \renewcommand{\arraystretch}{1.3}
+    \caption{Controllers for comparative study.\MSRY{Added for later}}
+    \centering
+    \begin{tabular}{c m{13.5em} m{7.5em}}
+    % \begin{tabular}{c c c c c}
+    \hline
+    & \textbf{Description} & \textbf{Control Input} \\
+    \hline
+    \hline 
+    (C$_1$) \protect\colorLine{blue}{solid} & Proposed controller & \eqref{eq:input:actual} \\ 
+    \hline
+    (C$_2$) \protect\colorLine{my_cyan}{solid} & Conventional feedback controller based on contraction theory \cite{Tsukamoto:2021ae} &  \eqref{eq:input:actual} without NN, \ie $\mv{\nu}=\mv{0}$ \\
+    \hline
+    (C$_3$) \protect\colorLine{gray}{solid} & Desired controller & $\mv{u}_d$ \\
+    \hline
+    \end{tabular}
+    \label{table:controllers}
+\end{table}
+
+
 The validation results are presented in terms of tracking errors, steering commands, and the global vehicle trajectory. In particular, the lateral and heading errors are used to assess whether the proposed 1D CNN--MLP controller can regulate the vehicle toward the desired path while adapting its parameters online. The front and rear steering-rate commands illustrate the control effort generated by the end-to-end policy, and the global $XY$ trajectory provides a direct geometric comparison between the desired path and the actual motion.
 
 In the final manuscript, this subsection should be organized around the simulation plots produced by the current MATLAB implementation. A compact presentation consistent with the reference paper would first discuss the validation conditions, then summarize the tracking behavior in the time domain, and finally comment on the overall path-following accuracy and adaptation behavior. Root-mean-square tracking errors and selected controller settings can also be reported in a table to make the comparison more concise.
@@ -636,13 +715,71 @@ In the final manuscript, this subsection should be organized around the simulati
 % -------------------------------------
 % Appendix
 % -------------------------------------
-% \appendix
+\appendix
+
+\subsection{Analytic Jacobian of NN}
+
+\MSRY{here, it says that the detail of the Jacobian calculation is in Appendix B (in previous version). Can you add here?}
+
+The adaptation law in \eqref{eq:adapt:primal_update} requires weights 
+Jacobians and are given by:
+\subsubsection{FCL Jacobians}
+The Jacobians of $\estNN$ with respect to the weights of FCL are derived recursively as the follows:
+\begin{equation} \label{eq:adapt: fcl_jacobians}
+  \tfrac{\partial \estNN}{\partial \tH_{F j_f}} 
+  = 
+  \begin{cases}
+    (\prod_{l=1}^{k_f} V_{l}^{\top} \phi_{l}^{F'}) 
+    \,
+    (I_{l_0} \otimes C(\Phi_{k_c}^{C})), 
+    & 
+    j_f = 0 
+    \\
+    (\prod_{l=j_f+1}^{k_f} V_{l}^{\top} \phi_{l}^{F'}) 
+    \,
+    (I_{l_{j_f}} \otimes \Phi_{j_f-1}^{F^{\top}}), 
+    & 
+    j_f \in [1,\dot, k_f]
+    ,
+  \end{cases}
+\end{equation}
+
+where $\phi_{j_f}^{F'} \triangleq \frac{\partial \phi_{j_f}^{F}(x)}{\partial x}$
+is the Jacobian of the activation function with respect to some vector $x$.
+
+\subsubsection{CVL Jacobians}
+The Jacobians of $\estNN$ with respect to the weights of CVLs (filters
+$\Omega_{j_c}$ and biases $B_{j_c}$) are given as follows: 
+\begin{IEEEeqnarray}{l}
+  \tfrac{\partial \estNN_i}{\partial W_{j_c}^{l_k}} 
+  =
+  \sum_{l_i=1}^{n_{j_c+1}} 
+  \Big(
+    \tfrac{\partial \estNN_i}{\partial \cred{\NNc}(l_i,l_k)}
+    \operatorname{row}(l_b:l_e) (\cred{\NNc})
+  \Big)
+  , 
+  \\
+  \tfrac{\partial \estNN_i}{\partial B_{j_c}(l_k)} 
+  =
+  \sum_{l_i=1}^{n_{j_c+1}} 
+  \Big(
+    \tfrac{\partial \estNN_i}{\partial \cred{\NNc}(l_i,l_k)}
+    \cdot 1
+  \Big), 
+\end{IEEEeqnarray}
+with $l_b \triangleq l_i$, $l_e \triangleq l_i+p_{j_c}-1$,  $j_c \in [0, \dots, k_c],  l_k \in [1, \dots, q_{j_c}]$
+
+where $\Phi_i$ denote the $i$-th output of $\estNN$, $\cred{\NNc} \triangleq \cred{\NNc}(\Phi_{j_c-1}^{C})$ for
+$j_c \in [1, \dots, k_c]$, $\Phi_{0}^{C} \triangleq \phi_{0}^{C}(X)$, and
+$\partial \estNN_i / \partial \cred{\NNc}$ denotes the backpropagated gradient
+of $\estNN_i$ with respect to $\cred{\NNc}$ (obtained using the back-propagation method, detailed in Appendix B).
 
 % ------------------------------------
 % Bibliography
 % ------------------------------------
 \bibliographystyle{IEEEtran}
-\bibliography{localRefs, Old_files/refs}
+\bibliography{localRefs, Old_files/refs, msRefs}
 
 % ------------------------------------
 % Biography

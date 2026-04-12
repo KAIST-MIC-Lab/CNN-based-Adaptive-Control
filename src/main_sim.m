@@ -1,75 +1,93 @@
-%% validate_pid.m
 clear;
-clc;
 close all;
+clc;
+addpath(genpath('./utils/'));
+addpath(genpath('./controllers/'));
+rng(10); % For reproducibility
 
-%% PARAMETERS
-sim.dt = 0.01;
-sim.T_end = 27.2;
-sim.t = 0:sim.dt:sim.T_end;
 
-vehicle.m = 1500;
-vehicle.Iz = 2500;
-vehicle.l1 = 1.10;
-vehicle.l2 = 1.60;
-vehicle.C1 = 90000;
-vehicle.C2 = 90000;
-vehicle.Fmax = 8000;
-vehicle.tau = 0.10;
-vehicle.vx = 5.0;
+%% Simulation Parameters
+sim_params.dt = 0.001;                                  %  1 kHz 
+sim_params.T = 27.2;                                      % Total simulation time
+sim_params.time = 0:sim_params.dt:sim_params.T;         % Time vector
+sim_params.N = length(sim_params.time);                 % Simulation steps
 
+%% Vehicle Parameters
+vehicle_params= vehicle_params();                       % Load vehicle
+
+%% Controller Parameters
+ctrl_param.dt  = 0.01;                                  % 100Hz control
+ctrl_param.Q = diag([20, 20]);                          % State tracking cost
+ctrl_param.R = diag([5, 5]);                            % Control effort cost
+ctrl_param.eta = 0.001;                                 % Learning rate
+lstm_param = lstm_params();                             % Load LSTM parameters
+ctrl_param.lstm_param = lstm_param;                     % Embed LSTM params in
+ctrl_param.max_ey = 1;                                % Max expected lateral error (meters)
+ctrl_param.max_epsi = 1;                              % Max expected heading error (radians)
+
+%% Initializations
+% Initialize lstm
+lstm= init_lstm(lstm_param);
+
+% Initial state [X_v; Y_v; psi; v_y; r]
+state = [0; -1; 0; 0; 0];
+% longitudinal speed
+
+% Initialize track
 track.L = 20;
 track.R = 15;
 
-ctrl.front.Kp_y = -0.6;
-ctrl.front.Kp_psi = 0.85; 
-
-% Rear steering supports the front axle with opposite sign.
-ctrl.rear.support_ratio = 0.35;
-
-ctrl.steer_limit = 0.17;
-
-%% INNITIAL CONDITIONS
-% state = [X_v; Y_v; psi; v_y; r; theta_f; theta_r]
-state = [0; -1; 0; 0; 0; 0; 0];
-
 %% LOGGING VARIABLES
-N = numel(sim.t);
-state_hist = zeros(7, N);
+N = numel(sim_params.time);
+state_hist = zeros(5, N);
 input_hist = zeros(2, N);
 error_hist = zeros(2, N);
 proj_hist = zeros(2, N);
 psi_ref_hist = zeros(1, N);
+norm_hist = zeros(6, N);
 
 %% SIMULATION LOOP
-for k = 1:N
+for t_idx = 1:N
     Xv = state(1);
     Yv = state(2);
     psi = state(3);
 
-    ref = project_region_based(Xv, Yv, track);
+    % Get reference trajectory and errors
+    ref = get_ref(Xv, Yv, track);
     ey = ref.ey;
     epsi = wrap_to_pi(ref.psi_des - psi);
+    e=[ey; epsi];
 
-    omega_1 = ...
-        ctrl.front.Kp_y * ey + ...
-        ctrl.front.Kp_psi * epsi;
+    
+    if mod(t_idx-1, 10) == 0 || t_idx == 1
+        % lstm forward pass
+        % lSTM input construction
+        x = [e(1)/ctrl_param.max_ey; 
+                  e(2)/ctrl_param.max_epsi];
+        [Phi, lstm] = lstm_forward(ctrl_param, lstm, x); 
 
-    omega_2 = -ctrl.rear.support_ratio * omega_1;
+        % train lstm
+        lstm = lstm_train(ctrl_param, lstm, e, Phi);
+    end
+    u= Phi;                                                 % end to end
 
-    omega_1 = saturate(omega_1, ctrl.steer_limit);
-    omega_2 = saturate(omega_2, ctrl.steer_limit);
+    state_dot = state_dynamics(state, u, vehicle_params);
+    state = state + sim_params.dt * state_dot;
 
-    state_dot = plant_dynamics(state, [omega_1; omega_2], vehicle);
-    state = state + sim.dt * state_dot;
+    state_hist(:, t_idx) = state;
+    input_hist(:, t_idx) = u;
+    error_hist(:, t_idx) = [ey; epsi];
+    proj_hist(:, t_idx) = [ref.X_star; ref.Y_star];
+    psi_ref_hist(t_idx) = ref.psi_des;
 
-    state_hist(:, k) = state;
-    input_hist(:, k) = [omega_1; omega_2];
-    error_hist(:, k) = [ey; epsi];
-    proj_hist(:, k) = [ref.X_star; ref.Y_star];
-    psi_ref_hist(k) = ref.psi_des;
+    % Calculate Frobenius norms for each weight matrix
+    norm_hist(1, t_idx) = norm(lstm.Wf, 'fro');
+    norm_hist(2, t_idx) = norm(lstm.Wi, 'fro');
+    norm_hist(3, t_idx) = norm(lstm.Wo, 'fro');
+    norm_hist(4, t_idx) = norm(lstm.Wc, 'fro');
+    norm_hist(5, t_idx) = norm(lstm.Wh, 'fro');
+    norm_hist(6, t_idx) = norm(lstm.Wff, 'fro');
 end
-
 %% REFERENCE TRACK
 track_plot = build_stadium_track(track, 200);
 
@@ -82,59 +100,63 @@ grid on;
 xlabel("X [m]");
 ylabel("Y [m]");
 title("Animated 4WS Tracking with Current Vehicle Orientation");
-animate_tracking(state_hist, proj_hist, track_plot, vehicle, sim);
+animate_tracking(state_hist, proj_hist, track_plot, vehicle_params, sim_params);
 
 figure("Color", "w");
 subplot(3, 1, 1);
-plot(sim.t, error_hist(1, :), "LineWidth", 1.4);
+plot(sim_params.time, error_hist(1, :), "LineWidth", 1.4);
 grid on;
 ylabel("e_y [m]");
 title("Tracking Errors and 4WS Steering Commands");
 
 subplot(3, 1, 2);
-plot(sim.t, error_hist(2, :), "LineWidth", 1.4);
+plot(sim_params.time, error_hist(2, :), "LineWidth", 1.4);
 grid on;
 ylabel("e_\psi [rad]");
 
 subplot(3, 1, 3);
-plot(sim.t, input_hist(1, :), "LineWidth", 1.4);
+plot(sim_params.time, input_hist(1, :), "LineWidth", 1.4);
 hold on;
-plot(sim.t, input_hist(2, :), "LineWidth", 1.4);
+plot(sim_params.time, input_hist(2, :), "LineWidth", 1.4);
 grid on;
 xlabel("Time [s]");
-ylabel("\omega [rad]");
-legend("\omega_1", "\omega_2", "Location", "best");
+ylabel("\delta [rad]");
+legend("\delta_f", "\delta_r", "Location", "best");
 
-fprintf("validate_pid.m finished.\n");
+fprintf("LSTM-ADAPTIVE PATH TRACKING SIMULATION RESULTS:\n");
 fprintf("RMSE lateral error : %.4f m\n", sqrt(mean(error_hist(1, :).^2)));
 fprintf("RMSE heading error : %.4f rad\n", sqrt(mean(error_hist(2, :).^2)));
 
+figure("Color", "w", "Name", "LSTM Weight Convergence");
+plot(sim_params.time, norm_hist', "LineWidth", 1.5);
+grid on;
+xlabel("Time [s]");
+ylabel("Frobenius Norm ||W||_F");
+legend("W_f (Forget)", "W_i (Input)", "W_o (Output)", ...
+       "W_c (Cell)", "W_h (Mapping)", "W_{ff} (Feedforward)", ...
+       "Location", "best", "NumColumns", 2);
+title("Evolution of LSTM Adaptive Weights");
 
-%% FUNCTION DEFINITIONS
-
-% VEHICLE DYNAMICS
-function state_dot = plant_dynamics(state, omega_cmd, vehicle)
-    C1 = vehicle.C1;
-    C2 = vehicle.C2;
-    l1 = vehicle.l1;
-    l2 = vehicle.l2;
-    vx = vehicle.vx;
-    m  = vehicle.m;
-    Iz = vehicle.Iz;
-    Fmax= vehicle.Fmax;
-    tau=  vehicle.tau; 
+%% VEHICLE DYNAMICS
+function state_dot = state_dynamics(state, u, vehicle_params)  
+    % Assumptions: No actuator lag, no longitudinal dynamics, constant longitudinal velocity (vx).
     
+    % Unpack vehicle parameters
+    C1 = vehicle_params.C1;
+    C2 = vehicle_params.C2;
+    l1 = vehicle_params.l1;
+    l2 = vehicle_params.l2;
+    m  = vehicle_params.m;
+    Iz = vehicle_params.Iz;
+    Fmax= vehicle_params.Fmax;
+    vx = vehicle_params.vx;
+
+    % Unpack state 
     psi = state(3);
     vy = state(4);
     r = state(5);
-    theta_1 = state(6);
-    theta_2 = state(7);
-
-    omega_1 = omega_cmd(1);
-    omega_2 = omega_cmd(2);
-
-    alpha_1 = theta_1 - (vy + l1 * r) / vx;
-    alpha_2 = theta_2 - (vy - l2 * r) / vx;
+    alpha_1 = u(1) - (vy + l1 * r) / vx;
+    alpha_2 = u(2) - (vy - l2 * r) / vx;
 
     Fy_f = Fmax * tanh((C1 / Fmax) * alpha_1);
     Fy_r = Fmax * tanh((C2 / Fmax) * alpha_2);
@@ -146,8 +168,6 @@ function state_dot = plant_dynamics(state, omega_cmd, vehicle)
     Yv_dot = vx * sin(psi) + vy * cos(psi);
     psi_dot = r;
 
-    theta_1_dot = (omega_1 - theta_1) / tau;
-    theta_2_dot = (omega_2 - theta_2) / tau;
 
     state_dot = [
         Xv_dot;
@@ -155,82 +175,14 @@ function state_dot = plant_dynamics(state, omega_cmd, vehicle)
         psi_dot;
         vy_dot;
         r_dot;
-        theta_1_dot;
-        theta_2_dot
     ];
 end
 
-
-% PATH PROJECTION
-function ref = project_region_based(Xv, Yv, track)
-    
-    R = track.R;
-    L = track.L;
-
-    if Yv < R
-        if Xv >= 0 && Xv <= L
-            ref = lower_straight_projection(Xv, Yv);
-        elseif Xv > L
-            ref = right_arc_projection(Xv, Yv, L, R);
-        else
-            ref = left_arc_projection(Xv, Yv, R);
-        end
-    else
-        if Xv >= 0 && Xv <= L
-            ref = upper_straight_projection(Xv, Yv, R);
-        elseif Xv > L
-            ref = right_arc_projection(Xv, Yv, L, R);
-        else
-            ref = left_arc_projection(Xv, Yv, R);
-        end
-    end
+function angle = wrap_to_pi(angle)
+    angle = mod(angle + pi, 2 * pi) - pi;
 end
 
-function ref = lower_straight_projection(Xv, Yv)
-    ref.X_star = Xv;
-    ref.Y_star = 0;
-    ref.psi_des = 0;
-
-    % lateral error
-    ref.ey = Yv;
-end
-
-function ref = upper_straight_projection(Xv, Yv, R)
-    ref.X_star = Xv;
-    ref.Y_star = 2 * R;
-    ref.psi_des = pi;
-
-    %lateral error
-    ref.ey = 2 * R - Yv;
-end
-
-function ref = right_arc_projection(Xv, Yv, L, R)
-    dx = Xv - L;
-    dy = Yv - R;
-    theta = atan2(dy, dx);
-
-    ref.X_star = L + R * cos(theta);
-    ref.Y_star = R + R * sin(theta);
-    ref.psi_des = wrap_to_pi(theta + pi / 2);
-
-    % lateral error
-    ref.ey = R - hypot(dx, dy);
-end
-
-function ref = left_arc_projection(Xv, Yv, R)
-    dx = Xv;
-    dy = Yv - R;
-    theta = atan2(dy, dx);
-
-    ref.X_star = R * cos(theta);
-    ref.Y_star = R + R * sin(theta);
-
-    ref.psi_des = wrap_to_pi(theta + pi / 2);
-
-    % lateral error
-    ref.ey = R - hypot(dx, dy);
-end
-
+%% VISUALIZATION
 function path_xy = build_stadium_track(track, n)
     x_bottom = linspace(0, track.L, n);
     y_bottom = zeros(1, n);
@@ -252,22 +204,13 @@ function path_xy = build_stadium_track(track, n)
     ];
 end
 
-function y = saturate(u, limit)
-    y = max(min(u, limit), -limit);
-end
-
-function angle = wrap_to_pi(angle)
-    angle = atan2(sin(angle), cos(angle));
-end
-
-
 % ANIMATION FUNCTIONS
-function animate_tracking(state_hist, proj_hist, track_plot, vehicle, sim)
-    body_length = vehicle.l1 + vehicle.l2;
+function animate_tracking(state_hist, proj_hist, track_plot, vehicle_params, sim_params)
+    body_length = vehicle_params.l1 + vehicle_params.l2;
     body_width = 1.8;
     axle_width = 1.6;
     heading_length = 1.8;
-    step = max(1, round(0.03 / sim.dt));
+    step = max(1, round(0.03 / sim_params.dt));
 
     traj_handle = plot(nan, nan, "b", "LineWidth", 1.8);
     proj_handle = plot(nan, nan, "r.", "MarkerSize", 10);
@@ -292,8 +235,8 @@ function animate_tracking(state_hist, proj_hist, track_plot, vehicle, sim)
         Xv = state_hist(1, k);
         Yv = state_hist(2, k);
         psi = state_hist(3, k);
-        theta_f = state_hist(6, k);
-        theta_r = state_hist(7, k);
+        theta_f = state_hist(4, k);
+        theta_r = state_hist(5, k);
 
         set(traj_handle, "XData", state_hist(1, 1:k), "YData", state_hist(2, 1:k));
         set(proj_handle, "XData", proj_hist(1, k), "YData", proj_hist(2, k));
@@ -306,8 +249,8 @@ function animate_tracking(state_hist, proj_hist, track_plot, vehicle, sim)
         heading_y = [Yv, Yv + heading_length * sin(psi)];
         set(heading_handle, "XData", heading_x, "YData", heading_y);
 
-        [front_x, front_y] = axle_segment(Xv, Yv, psi, vehicle.l1, axle_width, theta_f);
-        [rear_x, rear_y] = axle_segment(Xv, Yv, psi, -vehicle.l2, axle_width, theta_r);
+        [front_x, front_y] = axle_segment(Xv, Yv, psi, vehicle_params.l1, axle_width, theta_f);
+        [rear_x, rear_y] = axle_segment(Xv, Yv, psi, -vehicle_params.l2, axle_width, theta_r);
         set(front_axle_handle, "XData", front_x, "YData", front_y);
         set(rear_axle_handle, "XData", rear_x, "YData", rear_y);
 

@@ -1,7 +1,7 @@
 # CNN-based Adaptive Control
 
 Paper Name: TBD
-State: Rejected
+State: Rejecte
 
 > This paper is rejected...
 

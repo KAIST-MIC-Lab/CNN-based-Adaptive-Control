@@ -64,10 +64,10 @@
     arc[start angle=-90,end angle=-270,radius=\R];
 
   % Arc centers and radius markers
-  \fill (CL) circle (1.2pt);
-  \fill (CR) circle (1.2pt);
-  \node[below left=1pt] at (CL) {$C_{\mathrm{L}}$};
-  \node[below left=1pt] at (CR) {$C_{\mathrm{R}}$};
+  %\fill (CL) circle (1.2pt);
+  %\fill (CR) circle (1.2pt);
+  %\node[below left=1pt] at (CL) {$C_{\mathrm{L}}$};
+  %\node[below left=1pt] at (CR) {$C_{\mathrm{R}}$};
 
   \draw[dim] (CL) -- node[above left=-2pt] {$R$} ($(CL)+(140:\R)$);
   \draw[dim] (CR) -- node[above right=-2pt] {$R$} ($(CR)-(140:\R)$);

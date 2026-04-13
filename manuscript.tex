@@ -14,10 +14,34 @@
 
 \graphicspath{{\FIGURESPATH/}}
 
+% New defnitions of symbols for NN
+\newcommand*{\cnnOut}{\Phi^C}
+\newcommand*{\cnnAct}{\phi^C}
+\newcommand*{\fclOut}{\Phi^F}
+\newcommand*{\fclAct}{\phi^F}
+
+% spaces
+\newcommand*{\cnnInSpace}{\mathbb{R}^{n_{j_c}\times m_{j_c}}}
+\newcommand*{\cnnFiltSpace}{\mathbb{R}^{p_{j_c}\times m_{j_c}\times q_{j_c}}}
+\newcommand*{\cnnBiasSpace}{\mathbb{R}^{q_{j_c}}}
+\newcommand*{\cnnOutSpace}{\mathbb{R}^{n_{j_c+1}\times m_{j_c+1}}}
+
+\newcommand*{\fclInSpace}{\mathbb{R}^{l_{j_f}}}
+\newcommand*{\fclOutSpace}{\mathbb{R}^{l_{j_f}+1}}
+\newcommand*{\fclWeightSpace}{\mathbb{R}^{l_{j_f}+1 \times l_{j_f+1}}}
+
+
+
+
+
+
+
 % Symbols reused in the controller-design section.
 \newcommand{\matPhi}{\NN}
 \newcommand{\PhiStar}{\idealNN}
 \newcommand{\NNc}{\NN_{j_c}^{C}} 
+
+
 % \newcommand{\NNc}{\NN^{C}} % I think the subscript should be separated.
 % \newcommand{\cidx}{j_c}    % CVL index
 %     \NNc -> \NNc_{\cidx}   
@@ -130,15 +154,14 @@ In this study, the following notation is used:
 \section{Introduction}
 
 \MSRY{Naol I ask you to write the following things}
-\cred{
 \begin{itemize}
-  \item The jacobian of NN is missing (appendix in previous paper)
-  \item can you change notations of NN? (go to above part where newcommands are defined)
-  \item I removed some notations in your explanation about test circuit. If you think they are necessary, please let me know or if not, re-draw the figure.
-  \item Think about controllers to compare with for comparative study
-  \item Explain how you implemented the simulation 
+  \item The jacobian of NN is missing (appendix in previous paper) \NSER{Fixed}
+  \item can you change notations of NN? (go to above part where newcommands are defined) \NSER{Fixed-- new commands defined}
+  \item I removed some notations in your explanation about test circuit. If you think they are necessary, please let me know or if not, re-draw the figure. \NSER{Fixed -- Picture redrawn}
+  \item Think about controllers to compare with for comparative study \NSER{Noted!}
+  \item \cred{Explain how you implemented the simulation.} 
 \end{itemize}
-}
+
 
 \subsection{Motivation}
 %The empirical performances of NNs have been shown in many applications, due to their universal approximation property \cite{UnivDNN}. 
@@ -257,53 +280,73 @@ where $\mv{z} := \left(\mv{y}^\top,\mv{y}_d^\top\right)^\top \in \R^{2n}$, $\Del
 The NN $\estNN$ consists of convolutional layers (CVLs) and fully-connected layers (FCLs), which are detailed in the following subsections.
 
 \subsubsection{Convolutional Layers (CVLs)} \label{sec:ctrl:arch:cvl}
-
 The CVLs are represented recursively as:
 \begin{equation}\label{eq:cvl_output}
-  \cred{\NNc} 
-  = 
-  \begin{cases} 
-    O(\cred{\NNc}(\Phi_{j_c-1}^{C}),
-    \Omega_{j_c},B_{j_c}), 
-    & 
-    j_c \in [1,\dots,k_c] \\ 
-    O(\phi_{0}^{C}(X),\Omega_{0},B_{0}), 
-    & 
-    j_c = 0 
+  \cnnOut_{j_c}
+  =
+  \begin{cases}
+    O\bigl(\cnnAct_{j_c}(\cnnOut_{j_c-1}), \Omega_{j_c}, B_{j_c}\bigr),
+    & j_c \in [1,\dots,k_c], \\
+    O\bigl(\cnnAct_{0}(X), \Omega_{0}, B_{0}),
+    & j_c = 0
+    ,
   \end{cases}
-  ,
 \end{equation}
-where $O:\R^{n_{j_c} \times m_{j_c}} \times \R^{p_{j_c} \times m_{j_c} \times q_{j_c}} \times \R^{q_{j_c}} \to \R^{n_{j_c+1} \times m_{j_c+1}}$ denotes the CNN operator (see Appendix A), and $\cred{\NNc}:\R^{n_{j_c} \times m_{j_c}} \to \R^{n_{j_c} \times m_{j_c}}$ denotes the matrix activation function (i.e., $\phi^C(\Phi_{j_c-1}^{C})_{(i,j)} = \sigma_{j_c}(\Phi_{j_c-1}^{C})_{(i,j)}$) for some activation function $\sigma_{j_c}: \R \to \R$. 
-The first activation function $\phi_{0}^{C}$ should be a bounded nonlinear function to ensure that the input to the first CNN operator is bounded. 
-In this study, $\alpha_1 \tanh(\cdot)$ is selected with $\alpha_1 \in \R_{>0}$. 
-The filter set $\Omega_{j_c}$ contains $q_{j_c}$ filters $W_{j_c}^{(i)} \in \R^{p_{j_c} \times m_{j_c}}$, $\forall i \in [1,\dots,q_{j_c}]$, and is represented as $\Omega_{j_c} = \{W_{j_c}^{(1)},\dots,W_{j_c}^{(q_{j_c})}\}$, where superscript $i$ denotes the filter index. The bias vector $B_{j_c}$ consists of $q_{j_c}$ biases.
+where
+where
+$O:\cnnInSpace \times \cnnFiltSpace \times \cnnBiasSpace \to \cnnOutSpace$
+denotes the CNN operator (see Appendix A), and $\cnnAct_{j_c}:\cnnInSpace \to \cnnInSpace$ denotes the element-wise matrix activation function, where
+$\bigl(\cnnAct_{j_c}(Z)\bigr)_{(i,j)} \triangleq \sigma_{j_c}(Z_{(i,j)})$for any $Z \in \cnnInSpace$ and some activation function
+$\sigma_{j_c}:\mathbb{R}\to\mathbb{R}$.
 
-The weights for the $j_c$-th CVL layer are collectively represented as
-$\tH_{Cj_c} \triangleq [\text{vec}(\Omega_{j_c})^T, B_{j_c}^T]^T$.
+The first activation function $\cnnAct_0$ should be a bounded nonlinear
+function to ensure that the input to the first CNN operator is bounded.
+In this study, $\cnnAct_0(\cdot)=\alpha_1\tanh(\cdot)$ is selected with
+$\alpha_1 \in \mathbb{R}_{>0}$.
+
+The filter set $\Omega_{j_c}$ contains $q_{j_c}$ filters
+$W_{j_c}^{(i)} \in \mathbb{R}^{p_{j_c}\times m_{j_c}}$ for all
+$i \in [1,\dots,q_{j_c}]$, and is represented as
+$\Omega_{j_c}=\{W_{j_c}^{(1)},\dots,W_{j_c}^{(q_{j_c})}\}$, where the
+superscript $(i)$ denotes the filter index. The bias vector $B_{j_c}$
+consists of $q_{j_c}$ bias terms.
+
+The weights of the $j_c$th CVL are collectively represented by
+$\tH_{Cj_c} \triangleq [\mathrm{vec}(\Omega_{j_c})^T, B_{j_c}^T]^T$.
+
 
 \subsubsection{Fully-Connected Layers (FCLs)} \label{sec:ctrl:arch:fcl}
 The output matrix of the CVLs is input to the concatenate layer
-$C(\Phi_{k_c}^{C}) = [\text{vec}(\Phi_{k_c}^{C^{\top}})^{\top}, 1]^{\top}$
+$C(\cnnOut_{k_c}) = [\mathrm{vec}((\cnnOut_{k_c})^{\top})^{\top}, 1]^{\top}$
 before the input layer of FCLs for compatibility between the CVLs and FCLs.
-The FCLs are represented recursively as:
+The FCLs are represented recursively as
 \begin{equation} \label{eq:fcl_output}
-  \Phi_{j_f}^{F} 
-  = 
-  \begin{cases} 
-    V_{j_f}^{\top}\phiF(\Phi_{j_f-1}^{F}), & j_f \in [1,\dots,k_f] 
-    \\ 
-    V_{0}^{\top}C(\Phi_{k_c}^{C}), 
-    & 
-    j_f = 0 
+  \fclOut_{j_f}
+  =
+  \begin{cases}
+    V_{j_f}^{\top}\fclAct_{j_f}(\fclOut_{j_f-1}),
+    & j_f \in [1,\dots,k_f], \\
+    V_{0}^{\top}C(\cnnOut_{k_c}),
+    & j_f = 0
+    ,
   \end{cases}
-  ,
 \end{equation}
-where 
-$V_{j_f} \in \R^{l_{j_f}+1 \times l_{j_f+1}}$ denotes the weight matrix, 
-$\phiF: \R^{l_{j_f}} \to \R^{l_{j_f}+1}$ denotes the vector activation function defined by $\phiF(\Phi_{j_f-1}^{F}) \triangleq [\sigma_{j_f}(\Phi_{j_f-1}^{F})^\top, 1]^\top$ for $j_f \in [1,\dots,k_f-1]$, for some nonlinear activation functions $\sigma_{j_f}: \R \to \R$ such as $\tanh(\cdot)$. 
-Note that $C(\Phi_{k_c}^{C})$ and $\Phi_{j_f}^{F}$ are augmented by $1$ to consider the bias of the preceding input layer as a weight in the weight matrix. The output of the FCLs is the final output and is represented as $\estNN \triangleq \Phi_{k_f}^{F}$.
+where $V_{j_f} \in \fclWeightSpace$ denotes the weight matrix, and
+$\fclAct_{j_f}:\fclInSpace \to \fclOutSpace$ denotes the vector activation
+function defined by $\fclAct_{j_f}(\fclOut_{j_f-1}) \triangleq
+[\sigma_{j_f}(\fclOut_{j_f-1})^\top, 1]^\top$
+for $j_f \in [1,\dots,k_f-1]$, where
+$\sigma_{j_f}:\mathbb{R}\to\mathbb{R}$ is a nonlinear activation function such
+as $\tanh(\cdot)$.
 
-The FCL weights for the $j_f$-th layer are $\tH_{Fj_f} \triangleq \text{vec}(V_{j_f})$.
+Note that $C(\cnnOut_{k_c})$ and $\fclAct_{j_f}$ are augmented by $1$ to
+consider the bias of the preceding input layer as a weight in the weight
+matrix. The output of the FCLs is the final output and is represented as
+$\estNN \triangleq \fclOut_{k_f}$.
+
+The FCL weights for the $j_f$th layer are
+$\tH_{Fj_f} \triangleq \mathrm{vec}(V_{j_f})$.
+
 
 \subsection{Adaptation Laws Derivation} \label{sec:ctrl:adap}
 
@@ -355,7 +398,7 @@ $c_i$ are the weight norm constraints (i.e. ensuring boundedness) and
 $c_{\estNN}$ is the output norm constraint (i.e. ensuring input saturation limits
 $\bar{u}$).
 
-Solving the optimization problem in \eqref{eq:sys:opt_problem} is equivalent to finding the saddle point of the Lagrangian function given in \eqref{eq:adapt:lagrangian}:
+Solving the optimization problem in \eqref{eq:opt:prob} is equivalent to finding the saddle point of the Lagrangian function given in \eqref{eq:adapt:lagrangian}:
 \begin{equation}  \label{eq:adapt:lagrangian}
   \matL(\tH, \boldsymbol{\lambda}) 
   = 
@@ -424,7 +467,9 @@ The resulting gradient descent weight update rule for the primal variables is:
   \right]
   ,
 \end{equation}
-where $\alpha \in \R_{>0}$ is the learning rate.
+where $\alpha \in \R_{>0}$ is the learning rate, and
+$\tfrac{\partial \estNN}{\partial \tH_i}$ is the Jacobian of $\estNN$ with
+respect to $\tH_i$(see Appendix~B).
 
 The Lagrange multipliers are updated using projected gradient ascent:
 \begin{equation} \label{eq:adapt:dual_update}
@@ -540,18 +585,31 @@ By defining the state as $\mv{x}_1 := \left( v_y, r \right)^\top$ and $\mv{x}_2 
 Additionally, only the output $\mv{y}=\mv{x}_1$ can be measured, and the state $\mv{x}_2$ is not measurable by the system definition.
 
 \MSRY{Depending on the problem formulation, state can be position. (for now it is speed and time lag is added in control input intentionally to make the system second order) Tell me later how are you implementing controllers (what is the error for now? if the position is error as you wrote here, then the system is actuall third order)}
-The vehicle parameters are selected as $m = \qty{1463}{\kilo\gram}$, $I_z = \qty{1967.8}{\kilo\gram\meter\squared}$, $\lf = \qty{1.2}{\meter}$, and $\lr = \qty{1.6}{\meter}$. 
-The longitudinal velocity is fixed at $v_x = \qty{110}{\kilo\meter\per\hour}$. 
-\cred{
-The front and rear cornering stiffness values are allowed to vary within $C_i \in [\qty{78.4},\,\qty{145.6}{\kilo\newton\per\radian}]$ for $i \in \{f,r\}$, which corresponds to a $\pm 30\%$ variation about the nominal value $\qty{112}{\kilo\newton\per\radian}$.
-}
-\MSRY{where is Fmax, tau?}
+\NSER{The controller error is defined by the measured lateral and orientation errors, not by the full state vector. The full state is
+$[\psi,\dot{\psi},y,\dot{y},\theta_f,\theta_r]^\top$,
+so the plant is sixth order when the steering-lag dynamics are included. The controller uses only the measured lateral and orientation errors, while the underlying plant model remains sixth order. We may revise \eqref{eq:sys:lat:dyn} to state this explicitly.}
+
+
+The vehicle parameters are selected as
+$m = \qty{1500}{\kilo\gram}$,
+$I_z = \qty{2250}{\kilo\gram\meter\squared}$,
+$\lf = \qty{2.5}{\meter}$, and
+$\lr = \qty{1.6}{\meter}$.
+The longitudinal velocity is fixed at
+$v_x = \qty{5}{\meter\per\second}$.
+The tire-force adhesion limit is set to
+$F_{\max} = \qty{8000}{\newton}$.
+The front and rear cornering stiffness values are set to
+$C_f = C_r = \qty{90}{\kilo\newton\per\radian}$.
+
+\MSRY{where is Fmax, tau?} \NSER{Finalized later!}
 
 \hfill
 
 The desired trajectory is designed as a closed stadium-shaped path composed of two straight segments and two semicircular arcs, as illustrated in Fig.~\ref{fig:stadium-geometry}.
 Let $L$ and $R$ denote the straight length and turning radius, respectively. 
 \MSRY{I omitted many parts below. They look unnecessary. If you think they are necessary, please let me know.}
+\NSER{It is okay to remove!}
 % Then, the lower and upper straight segments are defined by
 % \begin{equation} \label{eq:stadium_path:upper}
 %     \mathcal{P}_1 
@@ -716,64 +774,157 @@ In the final manuscript, this subsection should be organized around the simulati
 % Appendix
 % -------------------------------------
 \appendix
+\subsection{CNN Operator} \label{app:cnn-operator}
+The CNN operator $O(\cdot)$ can be represented as 
+\begin{equation}
+    O(X,\Omega,B)_{(i,j)} = 
+    1_{1\times p}
+    (
+    W^{(j)}\odot \text{row}_{(i:i+p-1)} (X)
+    )
+    1_{m\times 1}
+    + B_{(j)}
+    ,
+\end{equation}
+where $X\in\mathbb{R}^{n\times m}$, $\Omega \in\mathbb{R}^{p\times m\times q}$, and $B\in\mathbb{R}^{q}$ denote the input matrix, filter set, and bias vector, respectively.
+The filter set $\Omega=\{W^{(1)},\dots,W^{(q)}\}$ has $q$ filters $W^{(i)}\in\mathbb{R}^{p\times m},\ \forall i\in[1,\dots, q]$. 
+Note that the operator's output is also bounded if $X$, $\Omega$, and $B$ are bounded.
 
-\subsection{Analytic Jacobian of NN}
-
-\MSRY{here, it says that the detail of the Jacobian calculation is in Appendix B (in previous version). Can you add here?}
-
+\subsection{Analytic Jacobians of the NN}
 The adaptation law in \eqref{eq:adapt:primal_update} requires weights 
 Jacobians and are given by:
 \subsubsection{FCL Jacobians}
 The Jacobians of $\estNN$ with respect to the weights of FCL are derived recursively as the follows:
-\begin{equation} \label{eq:adapt: fcl_jacobians}
+{\small
+\begin{equation} \label{eq:fcl_jacobians}
   \tfrac{\partial \estNN}{\partial \tH_{F j_f}} 
   = 
   \begin{cases}
-    (\prod_{l=1}^{k_f} V_{l}^{\top} \phi_{l}^{F'}) 
+    (\prod_{l=1}^{k_f} V_{l}^{\top} (\fclAct_{l})') 
     \,
-    (I_{l_0} \otimes C(\Phi_{k_c}^{C})), 
+    (I_{l_0} \otimes C(\cnnOut_{k_c})), 
     & 
     j_f = 0 
     \\
-    (\prod_{l=j_f+1}^{k_f} V_{l}^{\top} \phi_{l}^{F'}) 
+    (\prod_{l=j_f+1}^{k_f} V_{l}^{\top} (\fclAct_{l})') 
     \,
-    (I_{l_{j_f}} \otimes \Phi_{j_f-1}^{F^{\top}}), 
+    (I_{l_{j_f}} \otimes (\fclOut_{j_f-1})^{\top}), 
     & 
     j_f \in [1,\dot, k_f]
     ,
   \end{cases}
 \end{equation}
-
-where $\phi_{j_f}^{F'} \triangleq \frac{\partial \phi_{j_f}^{F}(x)}{\partial x}$
-is the Jacobian of the activation function with respect to some vector $x$.
+}
+where
+$(\fclAct_{j_f})'(x) \triangleq \tfrac{\partial}{\partial x}\fclAct_{j_f}(x)$
+denotes the Jacobian of the activation function with respect to the vector $x$.
 
 \subsubsection{CVL Jacobians}
-The Jacobians of $\estNN$ with respect to the weights of CVLs (filters
-$\Omega_{j_c}$ and biases $B_{j_c}$) are given as follows: 
-\begin{IEEEeqnarray}{l}
-  \tfrac{\partial \estNN_i}{\partial W_{j_c}^{l_k}} 
-  =
-  \sum_{l_i=1}^{n_{j_c+1}} 
-  \Big(
-    \tfrac{\partial \estNN_i}{\partial \cred{\NNc}(l_i,l_k)}
-    \operatorname{row}(l_b:l_e) (\cred{\NNc})
-  \Big)
-  , 
-  \\
-  \tfrac{\partial \estNN_i}{\partial B_{j_c}(l_k)} 
-  =
-  \sum_{l_i=1}^{n_{j_c+1}} 
-  \Big(
-    \tfrac{\partial \estNN_i}{\partial \cred{\NNc}(l_i,l_k)}
-    \cdot 1
-  \Big), 
-\end{IEEEeqnarray}
-with $l_b \triangleq l_i$, $l_e \triangleq l_i+p_{j_c}-1$,  $j_c \in [0, \dots, k_c],  l_k \in [1, \dots, q_{j_c}]$
+We first compute the Jacobian of $\estNN$ with respect to the concatenate
+layer, then backpropagate it through the CVLs, and finally obtain the
+Jacobians with respect to the filters and biases. Let $\estNN_i$ denote the
+$i$th output of $\estNN$.
 
-where $\Phi_i$ denote the $i$-th output of $\estNN$, $\cred{\NNc} \triangleq \cred{\NNc}(\Phi_{j_c-1}^{C})$ for
-$j_c \in [1, \dots, k_c]$, $\Phi_{0}^{C} \triangleq \phi_{0}^{C}(X)$, and
-$\partial \estNN_i / \partial \cred{\NNc}$ denotes the backpropagated gradient
-of $\estNN_i$ with respect to $\cred{\NNc}$ (obtained using the back-propagation method, detailed in Appendix B).
+The Jacobian of $\estNN$ with respect to the concatenate layer output is
+\begin{equation}
+  \frac{\partial \estNN}{\partial C(\cnnOut_{k_c})}
+  =
+  \left(
+    \overset{\curvearrowleft}{\prod_{l=1}^{k_f}}
+    \hat V_l^\top (\hat \phi_l^F)'
+  \right)
+  V_0^\top
+  ,
+  \label{eq:dEstNN_dC}
+\end{equation}
+
+The Jacobian of $\estNN_i$ with respect to the output of the final CVL is
+\begin{equation}
+  \frac{\partial \estNN_i}{\partial \cnnOut_{k_c}}
+  =
+  \operatorname{reshape}
+  \left(
+    \frac{\partial \estNN_i}{\partial C(\cnnOut_{k_c})}_{(1:n_{k_c}m_{k_c})},
+    n_{k_c},
+    m_{k_c}
+  \right)
+  ,
+  \label{eq:dEstNNi_dcnnOutkc}
+\end{equation}
+
+For each $j_c \in [1,\dots,k_c]$, the Jacobian of $\estNN_i$ with respect to
+the $j_c$th CVL activation satisfies
+
+{small
+\begin{equation}
+  \begin{aligned}
+    \frac{\partial \estNN_i}{\partial \cnnAct_{j_c}}
+    &=
+    \sum_{l_i=1}^{n_{j_c+1}} \sum_{l_j=1}^{m_{j_c+1}}
+    \left(
+      \frac{\partial \estNN_i}{\partial (\cnnOut_{j_c})_{(l_i,l_j)}}
+      \frac{\partial (\cnnOut_{j_c})_{(l_i,l_j)}}{\partial \cnnAct_{j_c}}
+    \right)
+    \\
+    &=
+    \frac{\partial \estNN_i}{\partial (\cnnOut_{j_c})_{(1,1)}}
+    \begin{bmatrix}
+      W_{j_c}^{(1)}\\
+      0_{(n_{j_c}-p_{j_c})\times m_{j_c}}
+    \end{bmatrix}
+    + \\&
+    \frac{\partial \estNN_i}{\partial (\cnnOut_{j_c})_{(2,1)}}
+    \begin{bmatrix}
+      0_{(n_{j_c}-p_{j_c})\times 1}\\
+      W_{j_c}^{(1)}\\
+      0_{(n_{j_c}-p_{j_c})\times (m_{j_c}-1)}
+    \end{bmatrix}
+    + \cdots
+    \\
+    &\quad +
+    \frac{\partial \estNN_i}{\partial (\cnnOut_{j_c})_{(n_{j_c+1},m_{j_c+1})}}
+    \begin{bmatrix}
+      0_{(n_{j_c}-p_{j_c})\times m_{j_c}}\\
+      W_{j_c}^{(q_{j_c})}
+    \end{bmatrix}
+    ,
+  \end{aligned}
+\end{equation}
+}
+Moreover, for all $j_c \in [0,\dots,k_c]$, the backpropagated Jacobian with
+respect to the $j_c$th CVL output is
+\begin{equation}
+  \frac{\partial \estNN_i}{\partial \cnnOut_{j_c}}
+  =
+  \frac{\partial \estNN_i}{\partial \cnnAct_{j_c+1}}
+  \odot
+  {\cnnAct_{j_c+1}}'(\cnnOut_{j_c})
+  ,
+  \label{eq:dEstNNi_dcnnOutjc}
+\end{equation}
+
+Finally, the Jacobians of $\estNN_i$ with respect to the $l_k$th filter and
+bias of the $j_c$th CVL are given by
+\begin{IEEEeqnarray}{l}
+  \tfrac{\partial \estNN_i}{\partial W_{j_c}^{l_k}}
+  =
+  \sum_{l_i=1}^{n_{j_c+1}}
+  \Big(
+    \tfrac{\partial \estNN_i}{\partial \cnnAct_{j_c}(l_i,l_k)}
+    \operatorname{row}(l_b:l_e)(\cnnOut_{j_c-1})
+  \Big),
+  \label{cvl:weight:jacobian}
+  \\
+  \tfrac{\partial \estNN_i}{\partial B_{j_c}(l_k)}
+  =
+  \sum_{l_i=1}^{n_{j_c+1}}
+  \Big(
+    \tfrac{\partial \estNN_i}{\partial \cnnAct_{j_c}(l_i,l_k)}
+  \Big),
+  \label{cvl:bias:jacobian}
+\end{IEEEeqnarray}
+where $l_b \triangleq l_i$, $l_e \triangleq l_i+p_{j_c}-1$,
+$j_c \in [0,\dots,k_c]$, and $l_k \in [1,\dots,q_{j_c}]$.
 
 % ------------------------------------
 % Bibliography

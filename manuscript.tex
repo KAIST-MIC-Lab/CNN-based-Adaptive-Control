@@ -584,14 +584,14 @@ where $\omega_f$ and $\omega_r$ denotes the front and rear steering commands, re
 \cred{By defining the state as $\mv{x}_1 := \left( v_y, r \right)^\top$ and $\mv{x}_2 := \left( \delf, \delr \right)^\top$, and the control input as $\mv{u} := \left( \omega_f, \omega_r \right)^\top$, the system can be expressed in the form of \eqref{eq:sys}.
 Additionally, only the output $\mv{y}=\mv{x}_1$ can be measured, and the state $\mv{x}_2$ is not measurable by the system definition.}
 \MSRY{Depending on the problem formulation, state can be position. (for now it is speed and time lag is added in control input intentionally to make the system second order) Tell me later how are you implementing controllers (what is the error for now? if the position is error as you wrote here, then the system is actuall third order)}
-\NSER{Here is what I was thinking: The controller error is defined by the measured lateral and orientation errors, not by the full state vector. The full state is$[\psi,\dot{\psi},y,\dot{y},\theta_f,\theta_r]^\top$,
-so the plant is sixth order when the steering-lag dynamics are included. So, to follow the model in \eqref{eq:sys}, I think, it should be something like below:}
 
-\cred {By defining the measurable output state as
+\NSER{Valid concern. In accordance with implemented PID controller, the paragraph above should be revised as follows:}
+
+\cblue {By defining the measurable output state as
 $\mv{x}_1 := (y,\psi)^\top$
 and the unmeasurable internal state as
 $\mv{x}_2 := (v_y,r,\delf,\delr)^\top$,
-the path-tracking model can be interpreted as a sixth-order system, where the
+the path-tracking model can be interpreted as a third-order system, where the
 controller uses only the measurable tracking-related outputs contained in
 $\mv{x}_1$.}
 
@@ -746,7 +746,6 @@ The tracking errors are then defined by the lateral displacement from the projec
 }
 
 \subsection{Validation Results}
-
 
 
 
